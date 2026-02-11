@@ -3,9 +3,11 @@ import Header from "../components/Header";
 import Keyboard from "../components/Keyboard";
 import Tiles from "../components/Tiles";
 import data from "../data/words.json";
+import Modal from "../components/Modal";
 
 export default function Survival({ mode = "survival" }) {
   const [gameResetKey, setGameResetKey] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // --- Constants for Storage Keys ---
   const LETTERS_KEY = `wordle-letters-${mode}`;
@@ -156,6 +158,24 @@ export default function Survival({ mode = "survival" }) {
       >
         Reset Game ({targetWord})
       </button>
+
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="bg-blue-500 px-4 py-2 rounded"
+      >
+        Show Results
+      </button>
+
+      <Modal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title="Game Over"
+      >
+        <p className="text-lg">Great job! You found the word.</p>
+        <p className="mt-2 text-sm opacity-70">
+          Would you like to try another one?
+        </p>
+      </Modal>
     </div>
   );
 }
