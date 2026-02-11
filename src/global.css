@@ -1,0 +1,101 @@
+@import url("https://fonts.googleapis.com/css2?family=Lilita+One&display=swap");
+@import "tailwindcss";
+@plugin "daisyui";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-gameDark: #121212;
+  --color-gameLight: #f5f5f5;
+  --color-gameGreen: #00e196;
+  --color-gameYellow: #ffd500;
+  --color-gameGrey: #909090;
+  --color-gameBlue: #3498db;
+  --color-gameRed: #ed143d;
+}
+
+* {
+  @apply select-none;
+}
+
+#root * {
+  /* @apply border border-red-500; */
+}
+
+.center {
+  @apply flex justify-center items-center;
+}
+
+.gameFont {
+  font-family: "Lilita One", sans-serif;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes flip {
+  0% {
+    transform: rotateX(0);
+  }
+  45% {
+    transform: rotateX(90deg);
+  }
+  55% {
+    transform: rotateX(90deg);
+  }
+  100% {
+    transform: rotateX(0);
+  }
+}
+
+.animate-pop {
+  animation: pop 0.1s ease-in-out;
+}
+
+.animate-flip {
+  animation: flip 0.6s ease-in-out forwards;
+}
+
+@keyframes shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes keyReveal {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-keyReveal {
+  animation: keyReveal 0.4s ease-in-out;
+}
