@@ -1,4 +1,5 @@
 export default function Keyboard({ letters, lastChanged }) {
+  if (!letters || typeof letters !== "object") return null;
   // Arrays to hold the JSX elements for each keyboard row
   let lettersRow1 = [];
   let lettersRow2 = [];
