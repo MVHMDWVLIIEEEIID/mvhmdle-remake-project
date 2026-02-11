@@ -8,6 +8,7 @@ import Modal from "../components/Modal";
 export default function Survival({ mode = "survival" }) {
   const [gameResetKey, setGameResetKey] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [streak, setStreak] = useState(0);
 
   // --- Constants for Storage Keys ---
   const LETTERS_KEY = `wordle-letters-${mode}`;
@@ -134,7 +135,10 @@ export default function Survival({ mode = "survival" }) {
   return (
     <div className="flex flex-col h-screen relative overflow-hidden bg-gameDark text-white">
       <div className="flex-1 center">
-        <Header mode={`${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode`} />
+        <Header
+          mode={`${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode`}
+          streak={streak}
+        />
       </div>
       <div className="flex-6 center">
         <div className="w-1/2 h-full center">
@@ -156,7 +160,7 @@ export default function Survival({ mode = "survival" }) {
         onClick={handleReset}
         className="absolute bottom-4 right-4 bg-gameRed hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow-lg text-sm z-50 transition-colors"
       >
-        Reset Game ({targetWord})
+        Reset Game ({targetWord.toUpperCase()})
       </button>
 
       <button

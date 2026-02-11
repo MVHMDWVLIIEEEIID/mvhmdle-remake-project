@@ -47,12 +47,20 @@ export default function Modal({ isOpen, onClose, title, children }) {
           {children}
         </div>
 
-        <button
-          onClick={onClose}
-          className="w-full bg-gameGreen hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10"
-        >
-          CONTINUE
-        </button>
+        <div className="flex gap-4">
+          <button
+            onClick={onClose}
+            className="w-full bg-gameRed hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={onClose}
+            className="w-full bg-gameGreen hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
+          >
+            CONTINUE
+          </button>
+        </div>
       </div>
     </div>
   );

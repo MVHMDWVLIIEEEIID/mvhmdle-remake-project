@@ -84,6 +84,12 @@ export default function Tiles({ targetWord, changeColor, storageKey }) {
   // --- Keyboard Event Listener ---
   useEffect(() => {
     const handleKeyDown = (e) => {
+      if (e.key === "Tab") {
+        e.preventDefault();
+        console.log("Tab key was pressed and blocked!");
+        return;
+      }
+
       if (gameState !== "playing" || turn >= 6) return;
       const key = e.key;
 
