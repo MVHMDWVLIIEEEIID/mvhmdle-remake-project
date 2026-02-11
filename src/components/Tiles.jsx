@@ -1,7 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import data from "../data/words.json";
 
-export default function Tiles({ targetWord, changeColor, storageKey }) {
+export default function Tiles({
+  targetWord,
+  changeColor,
+  storageKey,
+  onGameOver,
+}) {
   const today = new Date().toDateString();
 
   // --- Dynamic Storage Keys ---
@@ -28,13 +33,13 @@ export default function Tiles({ targetWord, changeColor, storageKey }) {
   // Derived Game State: Determining if the user has already won or lost
   const [gameState, setGameState] = useState(() => {
     const lastGuess = guesses[guesses.length - 1];
-    if (lastGuess === targetWord.toLowerCase()) return "won";
+    if (lastGuess === targetWord?.toLowerCase()) return "won";
     if (turn >= 6) return "lost";
     return "playing";
   });
 
   const [currentGuess, setCurrentGuess] = useState("");
-  const [solution] = useState(targetWord.toLowerCase());
+  const [solution] = useState(targetWord?.toLowerCase());
   const [shake, setShake] = useState(false);
   const [lastSubmittedTurn, setLastSubmittedTurn] = useState(-1);
 
@@ -86,15 +91,20 @@ export default function Tiles({ targetWord, changeColor, storageKey }) {
     const handleKeyDown = (e) => {
       if (e.key === "Tab") {
         e.preventDefault();
-        console.log("Tab key was pressed and blocked!");
         return;
       }
-
-      if (gameState !== "playing" || turn >= 6) return;
       const key = e.key;
+      console.log(key);
 
       if (key === "Enter") {
-        const guessToSubmit = currentGuess.toLowerCase();
+        if (gameState !== "playing" || turn >= 6) {
+          if (gameState === "won") {
+            onGameOver("won-already"); // Tell the parent we won
+          } else {
+            onGameOver("lost-already"); // Tell the parent we lost
+          }
+        }
+        const guessToSubmit = currentGuess?.toLowerCase();
         // Validation: Must be 5 letters, in the word list, and not already guessed
         if (
           guessToSubmit.length !== 5 ||
@@ -117,12 +127,17 @@ export default function Tiles({ targetWord, changeColor, storageKey }) {
 
         if (guessToSubmit === solution) {
           setGameState("won");
+          onGameOver("won"); // Tell the parent we won
         } else {
           setTurn((prev) => prev + 1);
-          if (turn === 5) setGameState("lost");
+          if (turn === 5) {
+            setGameState("lost");
+            onGameOver("lost"); // Tell the parent we lost
+          }
         }
         setCurrentGuess("");
       }
+      if (gameState !== "playing" || turn >= 6) return;
 
       if (key === "Backspace") {
         setCurrentGuess((prev) => prev.slice(0, -1));
@@ -130,7 +145,7 @@ export default function Tiles({ targetWord, changeColor, storageKey }) {
       }
 
       if (/^[A-Za-z]$/.test(key) && currentGuess.length < 5) {
-        setCurrentGuess((prev) => (prev + key).toLowerCase());
+        setCurrentGuess((prev) => (prev + key)?.toLowerCase());
       }
     };
 
@@ -143,6 +158,7 @@ export default function Tiles({ targetWord, changeColor, storageKey }) {
     gameState,
     solution,
     changeColor,
+    onGameOver,
     getGuessStatuses,
   ]);
 

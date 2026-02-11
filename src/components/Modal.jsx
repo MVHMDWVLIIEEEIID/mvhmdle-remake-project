@@ -19,7 +19,7 @@ export default function Modal({ isOpen, onClose, title, children }) {
         className={`relative w-full max-w-md rounded-2xl bg-gameDark border border-gameLight/30 p-8 shadow-2xl ${modalTransform}`}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-3xl font-extrabold text-white tracking-tight uppercase">
+          <h2 className="text-3xl font-extrabold text-white tracking-tight uppercase text-center w-full pl-6">
             {title}
           </h2>
           <button
@@ -43,7 +43,7 @@ export default function Modal({ isOpen, onClose, title, children }) {
           </button>
         </div>
 
-        <div className="text-gray-300 text-lg mb-8 leading-relaxed">
+        <div className="text-gray-200 mb-8 leading-relaxed min-h-[25vh] center flex-col">
           {children}
         </div>
 

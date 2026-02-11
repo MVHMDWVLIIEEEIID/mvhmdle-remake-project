@@ -2,19 +2,23 @@ import { useState, useEffect } from "react";
 import Header from "../components/Header";
 import Keyboard from "../components/Keyboard";
 import Tiles from "../components/Tiles";
+import Modal from "../components/Modal";
 import data from "../data/words.json";
 
 export default function Daily({ mode = "daily" }) {
   const todayDate = new Date();
   const todayString = todayDate.toDateString();
+  const [isModalOpen, setIsModalOpen] = useState([false, "lost"]);
 
   // gameResetKey is used as a 'key' on <Tiles /> to force a hard-reset of that component
   const [gameResetKey, setGameResetKey] = useState(0);
 
+  const solutionWords = data.slice(0, 3405);
+
   // Determine which word index to use based on days passed since Unix epoch
   const getDailyIndex = () => {
     const totalDays = Math.floor(todayDate.getTime() / (1000 * 60 * 60 * 24));
-    return totalDays % data.length;
+    return totalDays % solutionWords.length;
   };
 
   // --- Constants for Storage Keys ---
@@ -80,7 +84,8 @@ export default function Daily({ mode = "daily" }) {
     letter: null,
     timestamp: 0,
   });
-  const targetWord = data[random];
+
+  const targetWord = solutionWords[random];
 
   // Keep LocalStorage in sync with game state
   useEffect(() => {
@@ -129,6 +134,18 @@ export default function Daily({ mode = "daily" }) {
     setGameResetKey((prev) => prev + 1); // Changing the key prop forces Tiles to remount
   };
 
+  const handleGameOver = (result) => {
+    if (result === "won") {
+      setTimeout(() => setIsModalOpen([true, "won"]), 1500);
+    } else if (result === "lost") {
+      setTimeout(() => setIsModalOpen([true, "lost"]), 1500);
+    } else if (result === "won-already") {
+      setIsModalOpen([true, "won"]);
+    } else if (result === "lost-already") {
+      setIsModalOpen([true, "lost"]);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen relative overflow-hidden bg-gameDark text-white">
       <div className="flex-1 center">
@@ -142,6 +159,7 @@ export default function Daily({ mode = "daily" }) {
             targetWord={targetWord}
             changeColor={changeColor}
             storageKey={mode}
+            onGameOver={handleGameOver}
           />
         </div>
       </div>
@@ -156,6 +174,21 @@ export default function Daily({ mode = "daily" }) {
       >
         Reset Game ({targetWord.toUpperCase()})
       </button>
+
+      <Modal
+        isOpen={isModalOpen[0]}
+        onClose={() => {
+          setIsModalOpen([false, isModalOpen[1]]);
+          document.activeElement.blur();
+          window.focus();
+        }}
+        title={isModalOpen[1] === "won" ? "You Won" : "Game Over"}
+      >
+        <p className="text-lg">Great job! You found the word.</p>
+        <p className="mt-2 text-sm opacity-70">
+          Would you like to try another one?
+        </p>
+      </Modal>
     </div>
   );
 }

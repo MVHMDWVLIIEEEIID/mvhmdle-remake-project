@@ -7,12 +7,17 @@ import Modal from "../components/Modal";
 
 export default function Survival({ mode = "survival" }) {
   const [gameResetKey, setGameResetKey] = useState(0);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [streak, setStreak] = useState(0);
+  const [isModalOpen, setIsModalOpen] = useState([false, "lost"]);
+
+  // const messyList = data; // Example with duplicates
+  // const cleanList = [...new Set(messyList)];
+
+  // console.log(cleanList); // Output: ["apple", "crane", "stomp"]
 
   // --- Constants for Storage Keys ---
   const LETTERS_KEY = `wordle-letters-${mode}`;
   const INDEX_KEY = `wordle-solution-index-${mode}`;
+  const STREAK_KEY = `wordle-streak-${mode}`;
 
   // Storage keys used by the Tiles component to be cleared on reset
   const TILES_GUESSES_KEY = `${mode}-guesses`;
@@ -50,8 +55,10 @@ export default function Survival({ mode = "survival" }) {
     back: { color: " bg-gameLight ", row: 3, big: true },
   });
 
+  const solutionWords = data.slice(0, 3405);
+
   function getRandom() {
-    return Math.floor(Math.random() * data.length + 1);
+    return Math.floor(Math.random() * solutionWords.length);
   }
 
   // Load word index from storage or calculate new daily index
@@ -79,7 +86,7 @@ export default function Survival({ mode = "survival" }) {
     timestamp: 0,
   });
 
-  const targetWord = data[random];
+  const targetWord = solutionWords[random];
 
   // Keep LocalStorage in sync with game state
   useEffect(() => {
@@ -113,13 +120,14 @@ export default function Survival({ mode = "survival" }) {
     });
   };
 
-  const handleReset = (e) => {
-    e.currentTarget.blur();
-
+  const handleReset = () => {
+    document.activeElement.blur();
+    window.focus();
     // 1. Clear storage
     localStorage.removeItem(INDEX_KEY);
     localStorage.removeItem(LETTERS_KEY);
     localStorage.removeItem(TILES_GUESSES_KEY);
+    localStorage.removeItem(TILES_TURN_KEY);
     localStorage.removeItem(TILES_TURN_KEY);
 
     // 2. Repick the word by updating state
@@ -130,6 +138,36 @@ export default function Survival({ mode = "survival" }) {
     setLetters(getInitialLetters());
     setLastChanged({ letter: null, timestamp: 0 });
     setGameResetKey((prev) => prev + 1);
+  };
+
+  // 1. Initialize streak from storage
+  const [streak, setStreak] = useState(() => {
+    const savedStreak = localStorage.getItem(STREAK_KEY);
+    return savedStreak ? parseInt(savedStreak) : 0;
+  });
+
+  // 2. Sync streak to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem(STREAK_KEY, streak.toString());
+  }, [streak, mode, STREAK_KEY]);
+
+  // 3. Create the win/lost handler
+  const handleGameOver = (result) => {
+    if (result === "won") {
+      setTimeout(() => {
+        setStreak((prev) => prev + 1);
+        setIsModalOpen([true, "won"]);
+      }, 1500);
+    } else if (result === "lost") {
+      setStreak(0); // Reset streak on lost
+      setTimeout(() => setIsModalOpen([true, "lost"]), 1500);
+    } else if (result === "won-already") {
+      setIsModalOpen([true, "won"]);
+    } else if (result === "lost-already") {
+      setIsModalOpen([true, "lost"]);
+    }
+    document.activeElement.blur();
+    window.focus();
   };
 
   return (
@@ -148,6 +186,7 @@ export default function Survival({ mode = "survival" }) {
             targetWord={targetWord}
             changeColor={changeColor}
             storageKey={mode}
+            onGameOver={handleGameOver}
           />
         </div>
       </div>
@@ -160,25 +199,19 @@ export default function Survival({ mode = "survival" }) {
         onClick={handleReset}
         className="absolute bottom-4 right-4 bg-gameRed hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow-lg text-sm z-50 transition-colors"
       >
-        Reset Game ({targetWord.toUpperCase()})
-      </button>
-
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="bg-blue-500 px-4 py-2 rounded"
-      >
-        Show Results
+        Reset Game ({targetWord?.toUpperCase()})
       </button>
 
       <Modal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        title="Game Over"
+        isOpen={isModalOpen[0]}
+        onClose={() => {
+          handleReset();
+          setIsModalOpen([false, isModalOpen[1]]);
+        }}
+        title={isModalOpen[1] === "won" ? "You Won" : "Game Over"}
+        onRestart={handleGameOver}
       >
-        <p className="text-lg">Great job! You found the word.</p>
-        <p className="mt-2 text-sm opacity-70">
-          Would you like to try another one?
-        </p>
+        <p className="text-3xl">Your Current Streak : {streak}</p>
       </Modal>
     </div>
   );
