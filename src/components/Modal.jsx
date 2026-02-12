@@ -1,4 +1,11 @@
-export default function Modal({ isOpen, onClose, title, children }) {
+export default function Modal({
+  isOpen,
+  onClose,
+  onShare,
+  onNext,
+  title,
+  children,
+}) {
   // visibilityClass handles the master fade and blur toggle
   const visibilityClass = isOpen
     ? "opacity-100 pointer-events-auto backdrop-blur-md"
@@ -16,15 +23,15 @@ export default function Modal({ isOpen, onClose, title, children }) {
 
       {/* Modal Container */}
       <div
-        className={`relative w-full max-w-md rounded-2xl bg-gameDark border border-gameLight/30 p-8 shadow-2xl ${modalTransform}`}
+        className={`relative w-full max-w-md rounded-2xl bg-gameLight border border-gameLight/30 p-8 shadow-2xl ${modalTransform}`}
       >
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-3xl font-extrabold text-white tracking-tight uppercase text-center w-full pl-6">
+          <h2 className="text-3xl font-extrabold text-gameDark tracking-tight uppercase text-center w-full pl-6">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-white hover:bg-gameLight/20 rounded-full p-2 transition-colors"
+            className="text-gray-700 hover:text-gameDark hover:bg-gameDark/20 rounded-full p-2 transition-colors"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -43,22 +50,30 @@ export default function Modal({ isOpen, onClose, title, children }) {
           </button>
         </div>
 
-        <div className="text-gray-200 mb-8 leading-relaxed min-h-[25vh] center flex-col">
+        <div className="text-gray-700 mb-8 leading-relaxed min-h-[15vh] center flex-col">
           {children}
         </div>
 
         <div className="flex gap-4">
           <button
-            onClick={onClose}
-            className="w-full bg-gameRed hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
+            onClick={(e) => {
+              const element = e;
+              (onShare(),
+                (element.target.innerHTML = "Copied !"),
+                console.log(e.target),
+                setTimeout(() => {
+                  element.target.innerHTML = "Share";
+                }, 1500));
+            }}
+            className="w-full bg-gameBlue hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
           >
-            Cancel
+            Share
           </button>
           <button
-            onClick={onClose}
+            onClick={onNext}
             className="w-full bg-gameGreen hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
           >
-            CONTINUE
+            Next
           </button>
         </div>
       </div>

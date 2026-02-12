@@ -16,10 +16,7 @@
 
 * {
   @apply select-none;
-}
-
-#root * {
-  /* @apply border border-red-500; */
+  font-family: Cairo;
 }
 
 .center {
@@ -130,4 +127,9 @@
 
 .animate-modalOut {
   animation: modalOut 0.2s ease-in forwards;
+}
+
+/* 5. Firefox fix (Firefox has no arrows by default) */
+.clean-scroll {
+  scrollbar-width: none;
 }

@@ -4,6 +4,8 @@ import Keyboard from "../components/Keyboard";
 import Tiles from "../components/Tiles";
 import data from "../data/words.json";
 import Modal from "../components/Modal";
+import confetti from "canvas-confetti";
+import Shop from "../components/Shop";
 
 export default function Survival({ mode = "survival" }) {
   const [gameResetKey, setGameResetKey] = useState(0);
@@ -157,6 +159,7 @@ export default function Survival({ mode = "survival" }) {
       setTimeout(() => {
         setStreak((prev) => prev + 1);
         setIsModalOpen([true, "won"]);
+        handleConfetti();
       }, 1500);
     } else if (result === "lost") {
       setStreak(0); // Reset streak on lost
@@ -170,6 +173,82 @@ export default function Survival({ mode = "survival" }) {
     window.focus();
   };
 
+  function handleConfetti() {
+    const end = Date.now() + 3 * 1000; // 3 seconds
+    const colors = ["#ed143d", "#3498db", "#ffd500", "#00e196"];
+    const frame = () => {
+      if (Date.now() > end) return;
+      confetti({
+        disableForReducedMotion: false,
+        particleCount: 4,
+        angle: 90,
+        spread: 75,
+        startVelocity: 60,
+        origin: { x: 0, y: 0.75 },
+        colors: colors,
+      });
+      confetti({
+        disableForReducedMotion: false,
+        particleCount: 4,
+        angle: 90,
+        spread: 75,
+        startVelocity: 60,
+        origin: { x: 1, y: 0.75 },
+        colors: colors,
+      });
+      requestAnimationFrame(frame);
+    };
+    frame();
+  }
+
+  async function shareGame() {
+    // 1. Get the guesses and status logic (similar to Tiles logic)
+    const savedGuesses = localStorage.getItem(TILES_GUESSES_KEY);
+    const guesses = savedGuesses ? JSON.parse(savedGuesses) : [];
+
+    if (guesses.length === 0) return;
+
+    // 2. Map guesses to emoji strings
+    const grid = guesses
+      .map((guess) => {
+        const splitSolution = targetWord.toLowerCase().split("");
+        const splitGuess = guess.toLowerCase().split("");
+        const statuses = Array(5).fill("⬛"); // Default Grey
+
+        // Green Pass
+        splitGuess.forEach((char, i) => {
+          if (char === splitSolution[i]) {
+            statuses[i] = "🟩";
+            splitSolution[i] = null;
+          }
+        });
+
+        // Yellow Pass
+        splitGuess.forEach((char, i) => {
+          if (statuses[i] !== "🟩") {
+            const index = splitSolution.indexOf(char);
+            if (index !== -1) {
+              statuses[i] = "🟨";
+              splitSolution[index] = null;
+            }
+          }
+        });
+
+        return statuses.join("");
+      })
+      .join("\n");
+
+    // 3. Construct the final message
+    const score = isModalOpen[1] === "won" ? guesses.length : "X";
+    const streakShare =
+      isModalOpen[1] === "won"
+        ? `\n\nStreak: ${streak} ${streak >= 3 ? `🔥` : ``}`
+        : ``;
+    const shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/6\n\n${grid} ${streakShare}`;
+
+    await navigator.clipboard.writeText(shareText);
+  }
+
   return (
     <div className="flex flex-col h-screen relative overflow-hidden bg-gameDark text-white">
       <div className="flex-1 center">
@@ -178,8 +257,12 @@ export default function Survival({ mode = "survival" }) {
           streak={streak}
         />
       </div>
-      <div className="flex-6 center">
-        <div className="w-1/2 h-full center">
+      <div className="flex-6 flex justify-center items-center">
+        <div className="w-1/2 max-w-92 h-full center">
+          {/* Key prop ensures the w hole component restarts on reset */}
+          <Shop />
+        </div>
+        <div className="w-1/2 max-w-92 h-full center">
           {/* Key prop ensures the whole component restarts on reset */}
           <Tiles
             key={gameResetKey}
@@ -189,24 +272,24 @@ export default function Survival({ mode = "survival" }) {
             onGameOver={handleGameOver}
           />
         </div>
+        <div className="w-1/2 max-w-92 hidden lg:block">
+          {/* Key prop ensures the w hole component restarts on reset */}
+        </div>
       </div>
       <div className="flex-5 center shrink-0 mb-4">
         <Keyboard letters={letters} lastChanged={lastChanged} />
       </div>
 
-      {/* Debug Reset Button positioned at bottom-right */}
-      <button
-        onClick={handleReset}
-        className="absolute bottom-4 right-4 bg-gameRed hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow-lg text-sm z-50 transition-colors"
-      >
-        Reset Game ({targetWord?.toUpperCase()})
-      </button>
-
       <Modal
         isOpen={isModalOpen[0]}
         onClose={() => {
-          handleReset();
           setIsModalOpen([false, isModalOpen[1]]);
+        }}
+        onNext={() => {
+          setIsModalOpen([false, isModalOpen[1]], handleReset());
+        }}
+        onShare={() => {
+          shareGame();
         }}
         title={isModalOpen[1] === "won" ? "You Won" : "Game Over"}
         onRestart={handleGameOver}
