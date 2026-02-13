@@ -13,7 +13,7 @@ export default function Daily({ mode = "daily" }) {
   // gameResetKey is used as a 'key' on <Tiles /> to force a hard-reset of that component
   const [gameResetKey, setGameResetKey] = useState(0);
 
-  const solutionWords = data.slice(0, 3405);
+  const solutionWords = data.slice(0, 2314);
 
   // Determine which word index to use based on days passed since Unix epoch
   const getDailyIndex = () => {

@@ -11,10 +11,10 @@ export default function Survival({ mode = "survival" }) {
   const [gameResetKey, setGameResetKey] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState([false, "lost"]);
 
-  // const messyList = data; // Example with duplicates
+  // const messyList = data;
   // const cleanList = [...new Set(messyList)];
 
-  // console.log(cleanList); // Output: ["apple", "crane", "stomp"]
+  // console.log(cleanList);
 
   // --- Constants for Storage Keys ---
   const LETTERS_KEY = `wordle-letters-${mode}`;
@@ -57,7 +57,8 @@ export default function Survival({ mode = "survival" }) {
     back: { color: " bg-gameLight ", row: 3, big: true },
   });
 
-  const solutionWords = data.slice(0, 3405);
+  const solutionWords = data.slice(0, 2314);
+  console.log(solutionWords);
 
   function getRandom() {
     return Math.floor(Math.random() * solutionWords.length);
@@ -286,12 +287,17 @@ export default function Survival({ mode = "survival" }) {
           setIsModalOpen([false, isModalOpen[1]]);
         }}
         onNext={() => {
-          setIsModalOpen([false, isModalOpen[1]], handleReset());
+          setIsModalOpen(
+            [false, isModalOpen[1]],
+            setTimeout(() => handleReset(), 230),
+          );
         }}
         onShare={() => {
           shareGame();
         }}
-        title={isModalOpen[1] === "won" ? "You Won" : "Game Over"}
+        title={
+          isModalOpen[1] === "won" ? "You Won" : `Game Over (${targetWord})`
+        }
         onRestart={handleGameOver}
       >
         <p className="text-3xl">Your Current Streak : {streak}</p>
