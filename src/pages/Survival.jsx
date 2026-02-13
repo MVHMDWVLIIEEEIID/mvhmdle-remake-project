@@ -8,6 +8,20 @@ import Shop from "../components/Shop";
 import HistoryPanel from "../components/HistoryPanel";
 import useSurvivalGame from "../hooks/useSurvivalGame";
 
+const DEFAULT_HINTS = {
+  "Hide a Letter": {
+    cost: 500,
+    bought: 0,
+    desc: "Discard 1 incorrect key.",
+  },
+  "Vowel Letter": { cost: 500, bought: 0, desc: "Locate a hidden vowel." },
+  "Yellow Letter": { cost: 500, bought: 0, desc: "Find a misplaced key." },
+  "Green Letter": { cost: 800, bought: 0, desc: "Confirm a correct spot." },
+  Row: { cost: 1200, bought: 0, desc: "+1 Survival Attempt." },
+  Heart: { cost: 2000, bought: 0, desc: "+1 Extra Life." },
+  "Beat The Game": { cost: 999999, bought: 0, desc: "Instant Extraction." },
+};
+
 export default function Survival({ mode = "survival" }) {
   const [gameResetKey, setGameResetKey] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState([false, "playing"]);
@@ -40,28 +54,15 @@ export default function Survival({ mode = "survival" }) {
 
   const [hintsArray, setHintsArray] = useState(() => {
     const saved = localStorage.getItem(SHOP_DATA_KEY);
-    const defaultHints = {
-      "Hide a Letter": {
-        cost: 500,
-        bought: 0,
-        desc: "Discard 1 incorrect key.",
-      },
-      "Vowel Letter": { cost: 500, bought: 0, desc: "Locate a hidden vowel." },
-      "Yellow Letter": { cost: 500, bought: 0, desc: "Find a misplaced key." },
-      "Green Letter": { cost: 800, bought: 0, desc: "Confirm a correct spot." },
-      Row: { cost: 1200, bought: 0, desc: "+1 Survival Attempt." },
-      Heart: { cost: 2000, bought: 0, desc: "+1 Extra Life." },
-      "Beat The Game": { cost: 999999, bought: 0, desc: "Instant Extraction." },
-    };
     if (saved) {
       const parsed = JSON.parse(saved);
-      const merged = { ...defaultHints };
+      const merged = { ...DEFAULT_HINTS };
       Object.keys(merged).forEach((key) => {
         if (parsed[key]) merged[key].bought = parsed[key].bought;
       });
       return merged;
     }
-    return defaultHints;
+    return JSON.parse(JSON.stringify(DEFAULT_HINTS));
   });
 
   const [hintsUsedInRound, setHintsUsedInRound] = useState(() => {
@@ -135,8 +136,22 @@ export default function Survival({ mode = "survival" }) {
   };
 
   const handleFullReset = () => {
+    // 1. Force Clear LocalStorage
+    localStorage.removeItem(STREAK_KEY);
+    localStorage.removeItem(HEARTS_KEY);
+    localStorage.removeItem(CURRENCY_KEY);
+    localStorage.removeItem(SHOP_DATA_KEY);
+    localStorage.removeItem(HINTS_USED_KEY);
+    localStorage.removeItem(HINT_HISTORY_KEY);
+    localStorage.removeItem(LAST_REWARD_KEY);
+
+    // 2. Reset React State
     setStreak(0);
     setHearts(3);
+    setCurrency(2500);
+    setHintsArray(JSON.parse(JSON.stringify(DEFAULT_HINTS)));
+
+    // 3. Reset Game
     handleResetWrapper();
   };
 
@@ -170,16 +185,20 @@ export default function Survival({ mode = "survival" }) {
         handleConfetti();
       }, 1500);
     } else if (result === "lost") {
-      const newHearts = hearts - 1;
-      setHearts(newHearts);
+      // Wait for tiles animation to finish (approx 2s) before reducing heart and showing modal
+      setTimeout(() => {
+        const newHearts = hearts - 1;
+        setHearts(newHearts);
+        setStreak(0); // Reset streak on loss
 
-      if (newHearts <= 0) {
-        // All hearts lost -> Game Over
-        setTimeout(() => setIsModalOpen([true, "game-over"]), 1500);
-      } else {
-        // Hearts remaining -> Lost Heart
-        setTimeout(() => setIsModalOpen([true, "lost-heart"]), 1500);
-      }
+        if (newHearts <= 0) {
+          // All hearts lost -> Game Over
+          setIsModalOpen([true, "game-over"]);
+        } else {
+          // Hearts remaining -> Lost Heart
+          setIsModalOpen([true, "lost-heart"]);
+        }
+      }, 2000);
     } else if (result === "won-already") {
       setIsModalOpen([true, "won"]);
     } else if (result === "lost-already") {
@@ -342,15 +361,24 @@ export default function Survival({ mode = "survival" }) {
         return statuses.join("");
       })
       .join("\n");
+
     const score = isModalOpen[1] === "won" ? guesses.length : "X";
-    const streakShare =
-      isModalOpen[1] === "won"
-        ? `\n\nStreak: ${streak} ${streak >= 3 ? `🔥` : ``}`
-        : ``;
-    const shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/6\n\n${grid} ${streakShare}`;
+
+    let shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/6\n\n${grid}`;
+
+    if (isModalOpen[1] === "won") {
+      shareText += `\n\nStreak: ${streak} ${streak >= 3 ? "🔥" : ""}`;
+      if (lastReward) {
+        shareText += `\n+$${lastReward.total.toLocaleString()} | Total: $${currency.toLocaleString()} 💰`;
+      } else {
+        shareText += `\nTotal: $${currency.toLocaleString()} 💰`;
+      }
+    } else {
+      shareText += `\n\nTotal: $${currency.toLocaleString()} 💰`;
+    }
+
     await navigator.clipboard.writeText(shareText);
   }
-
   // --- Dynamic Modal Content Logic ---
   const getModalContent = () => {
     // 1. WON
@@ -360,8 +388,8 @@ export default function Survival({ mode = "survival" }) {
         content: lastReward ? (
           <div className="flex gap-2 w-full mt-4">
             <div className="bg-[#0a0a0a] text-gameGreen border-2 border-gameGreen/30 rounded-xl w-1/3 flex flex-col items-center justify-center p-2 shadow-lg">
-              <span className="text-4xl font-black">{streak}</span>
-              <span className="text-[10px] font-bold uppercase text-white/40 tracking-widest mt-1">
+              <span className="text-6xl font-bold">{streak}</span>
+              <span className="text-[10px] font-bold uppercase text-white/40 tracking-widest mt-2 text-center">
                 Streak
               </span>
             </div>
@@ -380,7 +408,9 @@ export default function Survival({ mode = "survival" }) {
                   <span>+{lastReward.breakdown.base}</span>
                 </div>
                 <div className="flex justify-between text-xs font-mono text-white/80">
-                  <span>Speed ({lastReward.breakdown.unusedCount} unused)</span>
+                  <span>
+                    Guesses Not Used ({lastReward.breakdown.unusedCount})
+                  </span>
                   <span>+{lastReward.breakdown.speed}</span>
                 </div>
                 <div className="flex justify-between text-xs font-mono text-white/80">
@@ -405,11 +435,11 @@ export default function Survival({ mode = "survival" }) {
           <div className="flex flex-col items-center gap-2">
             <p className="text-xl">You didn't guess the word.</p>
             <p className="text-4xl font-bold text-gameDark">
-              {targetWord.toUpperCase()}
+              "{targetWord.toUpperCase()}"
             </p>
             <div className="flex gap-2 mt-4">
               {[...Array(hearts)].map((_, i) => (
-                <span key={i} className="text-3xl text-red-500 animate-pulse">
+                <span key={i} className="text-3xl text-red-500">
                   ❤️
                 </span>
               ))}
@@ -425,13 +455,13 @@ export default function Survival({ mode = "survival" }) {
           <div className="flex gap-4 w-full">
             <button
               onClick={handleFullReset}
-              className="w-full bg-red-500 hover:bg-opacity-90 text-white font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg uppercase"
+              className="w-full bg-red-500 hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg uppercase"
             >
               Give Up
             </button>
             <button
               onClick={handleContinue}
-              className="w-full bg-gameGreen hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
+              className="w-full bg-gameYellow hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
             >
               Continue
             </button>
@@ -449,13 +479,14 @@ export default function Survival({ mode = "survival" }) {
             <p className="text-xl">You ran out of hearts!</p>
             <p className="text-sm text-gray-500">The word was:</p>
             <p className="text-4xl font-bold text-gameDark">
-              {targetWord.toUpperCase()}
+              "{targetWord.toUpperCase()}"
             </p>
-            <div className="bg-gameDark/10 px-6 py-3 rounded-lg mt-2">
-              <p className="text-sm uppercase font-bold text-gray-500">
+            {/* Updated Final Streak Box Style */}
+            <div className="bg-[#0a0a0a] text-gameRed border-2 border-gameGreen/30 rounded-xl aspect-square flex flex-col items-center justify-center p-3 shadow-lg mt-2">
+              <span className="text-5xl font-black">{streak}</span>
+              <span className="text-[10px] font-bold uppercase text-white/40 tracking-widest mt-2">
                 Final Streak
-              </p>
-              <p className="text-3xl font-black text-center">{streak}</p>
+              </span>
             </div>
           </div>
         ),
@@ -463,7 +494,7 @@ export default function Survival({ mode = "survival" }) {
           <div className="w-full">
             <button
               onClick={handleFullReset}
-              className="w-full bg-gameBlue hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg uppercase"
+              className="w-full bg-gameRed hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg uppercase"
             >
               Start Over
             </button>

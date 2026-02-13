@@ -1,4 +1,4 @@
-import React from 'react';
+import React from "react";
 
 export default function HistoryPanel({ history, hearts }) {
   return (
@@ -10,10 +10,14 @@ export default function HistoryPanel({ history, hearts }) {
         {/* Hearts Logic */}
         <div className="flex gap-1">
           {[...Array(hearts)].map((_, i) => (
-            <span key={i} className="text-red-500 animate-pulse drop-shadow-sm">❤️</span>
+            <span key={i} className="text-red-500 drop-shadow-sm">
+              ❤️
+            </span>
           ))}
           {[...Array(Math.max(0, 3 - hearts))].map((_, i) => (
-            <span key={`lost-${i}`} className="text-gameDark/20 grayscale">🖤</span>
+            <span key={`lost-${i}`} className="text-gameDark/20 grayscale">
+              🖤
+            </span>
           ))}
         </div>
       </header>
@@ -24,9 +28,14 @@ export default function HistoryPanel({ history, hearts }) {
           </div>
         ) : (
           history.map((log, idx) => (
-            <div key={idx} className="bg-gameLight/5 border-l-2 border-gameGreen p-2 rounded">
+            <div
+              key={idx}
+              className="bg-gameLight/5 border-l-2 border-gameGreen p-2 rounded"
+            >
               <div className="flex justify-between">
-                <span className="text-[10px] font-bold text-gameGreen uppercase">{log.name}</span>
+                <span className="text-[10px] font-bold text-gameGreen uppercase">
+                  {log.name}
+                </span>
               </div>
               <p className="text-xs text-white/80 font-mono mt-1">{log.msg}</p>
             </div>
