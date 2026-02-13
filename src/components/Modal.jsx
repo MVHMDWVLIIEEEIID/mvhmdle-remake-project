@@ -5,23 +5,20 @@ export default function Modal({
   onNext,
   title,
   children,
+  footer, // New prop to override default buttons
 }) {
-  // visibilityClass handles the master fade and blur toggle
   const visibilityClass = isOpen
     ? "opacity-100 pointer-events-auto backdrop-blur-md"
     : "opacity-0 pointer-events-none backdrop-blur-none";
 
-  // modalTransform handles the spring/shrink animation
   const modalTransform = isOpen ? "animate-modalIn" : "animate-modalOut";
 
   return (
     <div
       className={`fixed inset-0 z-100 flex items-center justify-center p-4 transition-all duration-300 ease-out ${visibilityClass}`}
     >
-      {/* Backdrop - darker overlay that fades with the blur */}
       <div className="fixed inset-0 bg-black/60" onClick={onClose} />
 
-      {/* Modal Container */}
       <div
         className={`relative w-full max-w-md rounded-2xl bg-gameLight border border-gameLight/30 p-8 shadow-2xl ${modalTransform}`}
       >
@@ -29,6 +26,7 @@ export default function Modal({
           <h2 className="text-3xl font-extrabold text-gameDark tracking-tight uppercase text-center w-full pl-6">
             {title}
           </h2>
+          {/* Close button (X) */}
           <button
             onClick={onClose}
             className="text-gray-700 hover:text-gameDark hover:bg-gameDark/20 rounded-full p-2 transition-colors"
@@ -54,28 +52,32 @@ export default function Modal({
           {children}
         </div>
 
-        <div className="flex gap-4">
-          <button
-            onClick={(e) => {
-              const element = e;
-              (onShare(),
-                (element.target.innerHTML = "Copied !"),
-                console.log(e.target),
+        {/* Conditionally render custom footer OR default Share/Next buttons */}
+        {footer ? (
+          <div className="flex gap-4">{footer}</div>
+        ) : (
+          <div className="flex gap-4">
+            <button
+              onClick={(e) => {
+                const element = e.target;
+                onShare();
+                element.innerHTML = "Copied !";
                 setTimeout(() => {
-                  element.target.innerHTML = "Share";
-                }, 1500));
-            }}
-            className="w-full bg-gameBlue hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
-          >
-            Share
-          </button>
-          <button
-            onClick={onNext}
-            className="w-full bg-gameGreen hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
-          >
-            Next
-          </button>
-        </div>
+                  element.innerHTML = "Share";
+                }, 1500);
+              }}
+              className="w-full bg-gameBlue hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
+            >
+              Share
+            </button>
+            <button
+              onClick={onNext}
+              className="w-full bg-gameGreen hover:bg-opacity-90 text-gameDark font-black py-4 rounded-xl transition-all active:scale-95 shadow-lg shadow-gameGreen/10 uppercase"
+            >
+              Next
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,35 +1,12 @@
-import { useState } from "react";
-
-export default function Shop() {
-  const [currency, setCurrency] = useState(2500);
-
-  const [hintsArray, setHintsArray] = useState({
-    "Hide a Letter": { cost: 500, bought: 0, desc: "Discard 1 incorrect key." },
-    "Vowel Letter": { cost: 500, bought: 0, desc: "Locate a hidden vowel." },
-    "Yellow Letter": { cost: 500, bought: 0, desc: "Find a misplaced key." },
-    "Green Letter": { cost: 800, bought: 0, desc: "Confirm a correct spot." },
-    Row: { cost: 1200, bought: 0, desc: "+1 Survival Attempt." },
-    "Beat The Game": { cost: 999999, bought: 0, desc: "Instant Extraction." },
-  });
-
-  const buyHint = (name) => {
-    const hint = hintsArray[name];
-    const currentPrice = Math.floor(
-      hint.cost * Math.pow(1.5, hint.bought || 0),
-    );
-
-    if (currency >= currentPrice) {
-      setCurrency((prev) => prev - currentPrice);
-      setHintsArray((prev) => ({
-        ...prev,
-        [name]: { ...prev[name], bought: (prev[name].bought || 0) + 1 },
-      }));
-    }
-  };
-
+export default function Shop({
+  currency,
+  hintsArray,
+  onBuyHint,
+  hintsUsedInRound = {},
+  hasGuesses = false,
+}) {
   return (
     <div className="h-72 w-72 text-gameLight rounded-lg flex flex-col bg-[#0a0a0a] border-2 border-gameLight shadow-[0_0_15px_rgba(0,0,0,0.5)] overflow-hidden font-sans">
-      {/* Header: Tactical Style */}
       <header className="h-12 flex-none bg-gameLight px-4 flex justify-between items-center border-b-2 border-gameLight/30">
         <div className="flex flex-col">
           <h2 className="text-xs font-black uppercase text-gameDark leading-none">
@@ -43,7 +20,6 @@ export default function Shop() {
         </div>
       </header>
 
-      {/* Item List */}
       <div className="flex-1 overflow-y-auto clean-scroll">
         {Object.entries(hintsArray).map(([name, data]) => {
           const currentPrice = Math.floor(
@@ -51,13 +27,30 @@ export default function Shop() {
           );
           const canAfford = currency >= currentPrice;
 
+          const usedCount = hintsUsedInRound[name] || 0;
+          let isLocked = false;
+
+          // --- Locking Logic ---
+          if (name === "Hide a Letter") {
+            isLocked = usedCount >= 5;
+          } else if (
+            ["Green Letter", "Yellow Letter", "Vowel Letter"].includes(name)
+          ) {
+            isLocked = usedCount >= 1;
+          } else if (name === "Row") {
+            // Locked if no guesses OR if already used once this round
+            isLocked = !hasGuesses || usedCount >= 1;
+          }
+
+          const isClickable = canAfford && !isLocked;
+
           return (
             <button
               key={name}
-              onClick={() => buyHint(name)}
-              disabled={!canAfford}
+              onClick={() => onBuyHint(name, currentPrice)}
+              disabled={!isClickable}
               className={`group w-full border-b border-gameLight/10 px-3 py-2.5 transition-all duration-200 flex flex-col h-14 justify-center relative
-                ${canAfford ? "hover:bg-gameLight/5 active:bg-gameLight/10 cursor-pointer" : "opacity-30 cursor-not-allowed"}
+                ${isClickable ? "hover:bg-gameLight/5 active:bg-gameLight/10 cursor-pointer" : "opacity-30 cursor-not-allowed"}
               `}
             >
               {/* Highlight Bar on Hover */}

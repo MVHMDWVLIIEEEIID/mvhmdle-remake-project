@@ -2,77 +2,50 @@ import { useEffect, useState, useCallback } from "react";
 import data from "../data/words.json";
 
 export default function Tiles({
+  guesses = [],
+  turn = 0,
   targetWord,
-  changeColor,
-  storageKey,
+  gameState = "playing",
+  onGuessSubmit,
   onGameOver,
 }) {
-  const today = new Date().toDateString();
-
-  // --- Dynamic Storage Keys ---
-  // Uses the 'storageKey' prop (usually 'daily') to keep different modes separate
-  const GUESSES_KEY = `${storageKey}-guesses`;
-  const TURN_KEY = `${storageKey}-turn`;
-  const DATE_KEY = `${storageKey}-date`;
-
-  // --- Game State Initialization ---
-  // Guesses: Loaded from localStorage if the saved date is still today
-  const [guesses, setGuesses] = useState(() => {
-    const savedDate = localStorage.getItem(DATE_KEY);
-    const savedGuesses = localStorage.getItem(GUESSES_KEY);
-    return savedDate === today && savedGuesses ? JSON.parse(savedGuesses) : [];
-  });
-
-  // Current Turn: Tracking how many attempts have been made (0-5)
-  const [turn, setTurn] = useState(() => {
-    const savedDate = localStorage.getItem(DATE_KEY);
-    const savedTurn = localStorage.getItem(TURN_KEY);
-    return savedDate === today && savedTurn ? parseInt(savedTurn) : 0;
-  });
-
-  // Derived Game State: Determining if the user has already won or lost
-  const [gameState, setGameState] = useState(() => {
-    const lastGuess = guesses[guesses.length - 1];
-    if (lastGuess === targetWord?.toLowerCase()) return "won";
-    if (turn >= 6) return "lost";
-    return "playing";
-  });
-
   const [currentGuess, setCurrentGuess] = useState("");
   const [solution] = useState(targetWord?.toLowerCase());
   const [shake, setShake] = useState(false);
   const [lastSubmittedTurn, setLastSubmittedTurn] = useState(-1);
 
-  // Sync game progress to LocalStorage whenever guesses or turns change
-  useEffect(() => {
-    localStorage.setItem(GUESSES_KEY, JSON.stringify(guesses));
-    localStorage.setItem(TURN_KEY, turn.toString());
-    localStorage.setItem(DATE_KEY, today);
-  }, [guesses, turn, today, GUESSES_KEY, TURN_KEY, DATE_KEY]);
+  const triggerShake = () => {
+    setShake(true);
+    setTimeout(() => setShake(false), 500);
+  };
 
-  // --- Status Logic ---
-  // Compares a guess against the solution and returns an array of colors (Green/Yellow/Grey)
+  useEffect(() => {
+    if (gameState !== "won" && turn <= lastSubmittedTurn) {
+      setLastSubmittedTurn(-1);
+      setCurrentGuess("");
+    }
+  }, [turn, lastSubmittedTurn, gameState]);
+
   const getGuessStatuses = useCallback(
     (guessStr) => {
       const splitSolution = solution.split("");
       const splitGuess = guessStr.split("");
       const statuses = Array(5).fill("bg-gameGrey");
 
-      // First pass: Find exact matches (Green)
+      // Green Pass
       splitGuess.forEach((char, i) => {
         if (char === splitSolution[i]) {
           statuses[i] = "bg-gameGreen";
-          splitSolution[i] = null; // Mark as used
+          splitSolution[i] = null;
         }
       });
-
-      // Second pass: Find existing but misplaced letters (Yellow)
+      // Yellow Pass
       splitGuess.forEach((char, i) => {
         if (statuses[i] !== "bg-gameGreen") {
-          const indexInSolution = splitSolution.indexOf(char);
-          if (indexInSolution !== -1) {
+          const index = splitSolution.indexOf(char);
+          if (index !== -1) {
             statuses[i] = "bg-gameYellow";
-            splitSolution[indexInSolution] = null;
+            splitSolution[index] = null;
           }
         }
       });
@@ -81,12 +54,6 @@ export default function Tiles({
     [solution],
   );
 
-  const triggerShake = () => {
-    setShake(true);
-    setTimeout(() => setShake(false), 500);
-  };
-
-  // --- Keyboard Event Listener ---
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === "Tab") {
@@ -94,18 +61,16 @@ export default function Tiles({
         return;
       }
       const key = e.key;
-      console.log(key);
 
       if (key === "Enter") {
         if (gameState !== "playing" || turn >= 6) {
-          if (gameState === "won") {
-            onGameOver("won-already"); // Tell the parent we won
-          } else {
-            onGameOver("lost-already"); // Tell the parent we lost
-          }
+          if (gameState === "won") onGameOver("won-already");
+          else onGameOver("lost-already");
+          return;
         }
+
         const guessToSubmit = currentGuess?.toLowerCase();
-        // Validation: Must be 5 letters, in the word list, and not already guessed
+
         if (
           guessToSubmit.length !== 5 ||
           !data.includes(guessToSubmit) ||
@@ -115,35 +80,18 @@ export default function Tiles({
           return;
         }
 
-        const statuses = getGuessStatuses(guessToSubmit);
-        // Staggered update for keyboard colors to match the tile flip animation
-        guessToSubmit.split("").forEach((char, i) => {
-          setTimeout(() => changeColor(statuses[i], char), i * 150 + 300);
-        });
-
-        setLastSubmittedTurn(turn);
-        const newGuesses = [...guesses, guessToSubmit];
-        setGuesses(newGuesses);
-
-        if (guessToSubmit === solution) {
-          setGameState("won");
-          onGameOver("won"); // Tell the parent we won
-        } else {
-          setTurn((prev) => prev + 1);
-          if (turn === 5) {
-            setGameState("lost");
-            onGameOver("lost"); // Tell the parent we lost
-          }
+        if (onGuessSubmit && onGuessSubmit(guessToSubmit)) {
+          setLastSubmittedTurn(turn);
+          setCurrentGuess("");
         }
-        setCurrentGuess("");
       }
+
       if (gameState !== "playing" || turn >= 6) return;
 
       if (key === "Backspace") {
         setCurrentGuess((prev) => prev.slice(0, -1));
         return;
       }
-
       if (/^[A-Za-z]$/.test(key) && currentGuess.length < 5) {
         setCurrentGuess((prev) => (prev + key)?.toLowerCase());
       }
@@ -151,18 +99,8 @@ export default function Tiles({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [
-    currentGuess,
-    turn,
-    guesses,
-    gameState,
-    solution,
-    changeColor,
-    onGameOver,
-    getGuessStatuses,
-  ]);
+  }, [currentGuess, turn, guesses, gameState, onGuessSubmit, onGameOver]);
 
-  // --- Grid Rendering Logic ---
   const items = [];
   for (let i = 0; i < 6; i++) {
     const isPrevRow = i < turn || (gameState === "won" && i === turn);
@@ -203,7 +141,6 @@ export default function Tiles({
               ${shake && isCurrentRow ? "animate-shake border-red-500!" : ""}
               ${colorClass}
             `}
-          // Inline styles to stagger animations based on tile index
           style={
             shouldFlip
               ? {
