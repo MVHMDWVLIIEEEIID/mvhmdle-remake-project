@@ -75,6 +75,7 @@ export default function useSurvivalGame(mode) {
     try {
       return savedLetters ? JSON.parse(savedLetters) : getInitialLetters();
     } catch (e) {
+      console.log(e);
       return getInitialLetters();
     }
   });

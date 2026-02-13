@@ -8,7 +8,7 @@ export default function Tiles({
   gameState = "playing",
   onGuessSubmit,
   onGameOver,
-  addToast, // Recieve the toast function
+  addToast,
 }) {
   const [currentGuess, setCurrentGuess] = useState("");
   const [solution] = useState(targetWord?.toLowerCase());
@@ -20,12 +20,10 @@ export default function Tiles({
     setTimeout(() => setShake(false), 500);
   };
 
-  useEffect(() => {
-    if (gameState !== "won" && turn <= lastSubmittedTurn) {
-      setLastSubmittedTurn(-1);
-      setCurrentGuess("");
-    }
-  }, [turn, lastSubmittedTurn, gameState]);
+  // --- DELETED USEEFFECT ---
+  // We do not need useEffect to sync state here.
+  // We will handle the cleanup directly in handleKeyDown.
+  // -------------------------
 
   const getGuessStatuses = useCallback(
     (guessStr) => {
@@ -72,28 +70,28 @@ export default function Tiles({
 
         const guessToSubmit = currentGuess?.toLowerCase();
 
-        // --- VALIDATION AND TOASTS ---
+        // Validation
         if (guessToSubmit.length !== 5) {
           triggerShake();
-          addToast("Not enough letters!", "error");
+          if (addToast) addToast("Not enough letters!", "error");
           return;
         }
-
         if (guesses.includes(guessToSubmit)) {
           triggerShake();
-          addToast("Word already submitted!", "error");
+          if (addToast) addToast("Word already submitted!", "error");
           return;
         }
-
         if (!data.includes(guessToSubmit)) {
           triggerShake();
-          addToast("Incorrect word", "error");
+          if (addToast) addToast("Incorrect word", "error");
           return;
         }
-        // -----------------------------
 
+        // --- SUBMIT LOGIC (MOVED HERE) ---
         if (onGuessSubmit && onGuessSubmit(guessToSubmit)) {
+          // 1. Trigger the animation for the row we just finished
           setLastSubmittedTurn(turn);
+          // 2. Clear the input immediately for the next turn
           setCurrentGuess("");
         }
       }
@@ -105,14 +103,12 @@ export default function Tiles({
         return;
       }
 
-      // Check specifically for English alphabet letters
       if (/^[a-zA-Z]$/.test(key)) {
         if (currentGuess.length < 5) {
           setCurrentGuess((prev) => (prev + key)?.toLowerCase());
         }
       } else if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        // If user types a symbol/number/special char, show toast
-        addToast("Game only accepts English letters", "error");
+        if (addToast) addToast("Game only accepts English letters", "error");
       }
     };
 
@@ -132,6 +128,8 @@ export default function Tiles({
   for (let i = 0; i < 6; i++) {
     const isPrevRow = i < turn || (gameState === "won" && i === turn);
     const isCurrentRow = i === turn && gameState === "playing";
+
+    // Logic to ensure we only flip the row we just submitted
     const shouldFlip = i === lastSubmittedTurn;
 
     let rowLetters = Array(5).fill("");
