@@ -7,13 +7,10 @@ import confetti from "canvas-confetti";
 import Shop from "../components/Shop";
 import HistoryPanel from "../components/HistoryPanel";
 import useSurvivalGame from "../hooks/useSurvivalGame";
+import Toast from "../components/Toast";
 
 const DEFAULT_HINTS = {
-  "Hide a Letter": {
-    cost: 500,
-    bought: 0,
-    desc: "Discard 1 incorrect key.",
-  },
+  "Hide a Letter": { cost: 500, bought: 0, desc: "Discard 1 incorrect key." },
   "Vowel Letter": { cost: 500, bought: 0, desc: "Locate a hidden vowel." },
   "Yellow Letter": { cost: 500, bought: 0, desc: "Find a misplaced key." },
   "Green Letter": { cost: 800, bought: 0, desc: "Confirm a correct spot." },
@@ -25,6 +22,27 @@ const DEFAULT_HINTS = {
 export default function Survival({ mode = "survival" }) {
   const [gameResetKey, setGameResetKey] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState([false, "playing"]);
+
+  // --- Toast Logic ---
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (msg, type = "info") => {
+    const id = Date.now() + Math.random(); // Unique ID
+    setToasts((prev) => {
+      // Add new toast and limit to max 3
+      const updated = [...prev, { id, msg, type }];
+      if (updated.length > 3) {
+        return updated.slice(updated.length - 3);
+      }
+      return updated;
+    });
+
+    // Remove after animation finishes (2.5s)
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 2500);
+  };
+  // -------------------
 
   const {
     targetWord,
@@ -123,7 +141,6 @@ export default function Survival({ mode = "survival" }) {
     }
   }, [lastReward, LAST_REWARD_KEY]);
 
-  // --- Helpers for Resetting ---
   const handleResetWrapper = () => {
     document.activeElement.blur();
     window.focus();
@@ -136,7 +153,6 @@ export default function Survival({ mode = "survival" }) {
   };
 
   const handleFullReset = () => {
-    // 1. Force Clear LocalStorage
     localStorage.removeItem(STREAK_KEY);
     localStorage.removeItem(HEARTS_KEY);
     localStorage.removeItem(CURRENCY_KEY);
@@ -145,21 +161,17 @@ export default function Survival({ mode = "survival" }) {
     localStorage.removeItem(HINT_HISTORY_KEY);
     localStorage.removeItem(LAST_REWARD_KEY);
 
-    // 2. Reset React State
     setStreak(0);
     setHearts(3);
     setCurrency(2500);
     setHintsArray(JSON.parse(JSON.stringify(DEFAULT_HINTS)));
-
-    // 3. Reset Game
     handleResetWrapper();
   };
 
   const handleContinue = () => {
-    handleResetWrapper(); // Keep streak/hearts, just new word
+    handleResetWrapper();
   };
 
-  // --- Game Over Logic ---
   const handleGameOver = (result, guessCount) => {
     if (result === "won") {
       const unusedRows = 6 - guessCount;
@@ -185,24 +197,19 @@ export default function Survival({ mode = "survival" }) {
         handleConfetti();
       }, 1500);
     } else if (result === "lost") {
-      // Wait for tiles animation to finish (approx 2s) before reducing heart and showing modal
       setTimeout(() => {
         const newHearts = hearts - 1;
         setHearts(newHearts);
-        setStreak(0); // Reset streak on loss
-
+        setStreak(0);
         if (newHearts <= 0) {
-          // All hearts lost -> Game Over
           setIsModalOpen([true, "game-over"]);
         } else {
-          // Hearts remaining -> Lost Heart
           setIsModalOpen([true, "lost-heart"]);
         }
       }, 2000);
     } else if (result === "won-already") {
       setIsModalOpen([true, "won"]);
     } else if (result === "lost-already") {
-      // Re-open correct modal based on current hearts
       if (hearts <= 0) setIsModalOpen([true, "game-over"]);
       else setIsModalOpen([true, "lost-heart"]);
     }
@@ -211,14 +218,23 @@ export default function Survival({ mode = "survival" }) {
   };
 
   const handleBuyHint = (name, cost) => {
-    if (currency < cost) return;
+    if (currency < cost) {
+      addToast("Not enough cash!", "error");
+      return;
+    }
+
     const usedCount = hintsUsedInRound[name] || 0;
-    if (name === "Hide a Letter" && usedCount >= 5) return;
+    if (name === "Hide a Letter" && usedCount >= 5) {
+      addToast("Max usage reached!", "error");
+      return;
+    }
     if (
       ["Green Letter", "Yellow Letter", "Vowel Letter", "Row"].includes(name) &&
       usedCount >= 1
-    )
+    ) {
+      addToast("Already used this round!", "error");
       return;
+    }
 
     let success = false;
     let logMsg = "";
@@ -227,10 +243,14 @@ export default function Survival({ mode = "survival" }) {
       setHearts((h) => h + 1);
       success = true;
       logMsg = "Bought Extra Life (+1 ❤️)";
+      addToast("Extra Life Purchased ❤️", "success");
     } else if (name === "Row") {
       if (undoLastGuess()) {
         logMsg = "Recovered 1 Attempt!";
         success = true;
+        addToast("Attempt Recovered!", "success");
+      } else {
+        addToast("Nothing to undo!", "error");
       }
     } else {
       const solutionArr = targetWord.toLowerCase().split("");
@@ -250,7 +270,11 @@ export default function Survival({ mode = "survival" }) {
           logMsg = `Position ${revealIdx + 1} is '${char.toUpperCase()}'`;
           changeColor("bg-gameGreen", char);
           success = true;
-        } else success = true;
+          addToast(`Revealed: ${char.toUpperCase()}`, "success");
+        } else {
+          addToast("All letters already known!", "info");
+          success = true;
+        }
       } else if (name === "Yellow Letter") {
         const candidates = solutionArr.filter(
           (c) =>
@@ -263,7 +287,11 @@ export default function Survival({ mode = "survival" }) {
           logMsg = `Word contains '${char.toUpperCase()}'`;
           changeColor("bg-gameYellow", char);
           success = true;
-        } else success = true;
+          addToast(`Word has: ${char.toUpperCase()}`, "success");
+        } else {
+          addToast("No hidden yellow letters!", "info");
+          success = true;
+        }
       } else if (name === "Hide a Letter") {
         const alphabet = "abcdefghijklmnopqrstuvwxyz".split("");
         const candidates = alphabet.filter(
@@ -277,17 +305,26 @@ export default function Survival({ mode = "survival" }) {
           changeColor("bg-gameGrey", char);
           logMsg = `Removed: ${char.toUpperCase()}`;
           success = true;
-        } else success = true;
+          addToast(`Removed ${char.toUpperCase()}`, "success");
+        } else {
+          addToast("No more letters to hide!", "info");
+          success = true;
+        }
       } else if (name === "Vowel Letter") {
         const vowels = ["a", "e", "i", "o", "u"];
         const present = vowels.filter((v) => targetWord.includes(v));
-        if (present.length > 0)
+        if (present.length > 0) {
           logMsg = `Contains: ${present[0].toUpperCase()}`;
-        else logMsg = "No vowels in word!";
+          addToast(`Vowel Found: ${present[0].toUpperCase()}`, "success");
+        } else {
+          logMsg = "No vowels in word!";
+          addToast("No vowels found!", "info");
+        }
         success = true;
       } else if (name === "Beat The Game") {
         logMsg = `Word was: ${targetWord}`;
         success = true;
+        addToast("Game Beaten!", "success");
       }
     }
 
@@ -363,7 +400,6 @@ export default function Survival({ mode = "survival" }) {
       .join("\n");
 
     const score = isModalOpen[1] === "won" ? guesses.length : "X";
-
     let shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/6\n\n${grid}`;
 
     if (isModalOpen[1] === "won") {
@@ -378,10 +414,10 @@ export default function Survival({ mode = "survival" }) {
     }
 
     await navigator.clipboard.writeText(shareText);
+    addToast("Copied to Clipboard!", "success");
   }
-  // --- Dynamic Modal Content Logic ---
+
   const getModalContent = () => {
-    // 1. WON
     if (isModalOpen[1] === "won") {
       return {
         title: "You Won",
@@ -423,11 +459,10 @@ export default function Survival({ mode = "survival" }) {
         ) : (
           <p className="text-3xl text-center">Your Current Streak: {streak}</p>
         ),
-        footer: null, // Use default
+        footer: null,
       };
     }
 
-    // 2. LOST A HEART (Alive)
     if (isModalOpen[1] === "lost-heart") {
       return {
         title: "You Lost a Heart",
@@ -470,7 +505,6 @@ export default function Survival({ mode = "survival" }) {
       };
     }
 
-    // 3. GAME OVER (Dead)
     if (isModalOpen[1] === "game-over") {
       return {
         title: "Game Over",
@@ -481,7 +515,6 @@ export default function Survival({ mode = "survival" }) {
             <p className="text-4xl font-bold text-gameDark">
               "{targetWord.toUpperCase()}"
             </p>
-            {/* Updated Final Streak Box Style */}
             <div className="bg-[#0a0a0a] text-gameRed border-2 border-gameGreen/30 rounded-xl aspect-square flex flex-col items-center justify-center p-3 shadow-lg mt-2">
               <span className="text-5xl font-black">{streak}</span>
               <span className="text-[10px] font-bold uppercase text-white/40 tracking-widest mt-2">
@@ -510,6 +543,7 @@ export default function Survival({ mode = "survival" }) {
 
   return (
     <div className="flex flex-col h-screen relative overflow-hidden bg-gameDark text-white">
+      <Toast toasts={toasts} />
       <div className="flex-1 center flex-col">
         <Header
           mode={`${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode`}
@@ -535,9 +569,10 @@ export default function Survival({ mode = "survival" }) {
             gameState={gameState}
             onGuessSubmit={(g) => submitGuess(g, handleGameOver)}
             onGameOver={handleGameOver}
+            addToast={addToast}
           />
         </div>
-        <div className="w-1/2 max-w-92 hidden lg:block h-72">
+        <div className="w-1/2 max-w-92 center">
           <HistoryPanel history={hintHistory} hearts={hearts} />
         </div>
       </div>

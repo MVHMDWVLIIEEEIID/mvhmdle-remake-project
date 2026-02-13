@@ -8,6 +8,7 @@ export default function Tiles({
   gameState = "playing",
   onGuessSubmit,
   onGameOver,
+  addToast, // Recieve the toast function
 }) {
   const [currentGuess, setCurrentGuess] = useState("");
   const [solution] = useState(targetWord?.toLowerCase());
@@ -71,14 +72,25 @@ export default function Tiles({
 
         const guessToSubmit = currentGuess?.toLowerCase();
 
-        if (
-          guessToSubmit.length !== 5 ||
-          !data.includes(guessToSubmit) ||
-          guesses.includes(guessToSubmit)
-        ) {
+        // --- VALIDATION AND TOASTS ---
+        if (guessToSubmit.length !== 5) {
           triggerShake();
+          addToast("Not enough letters!", "error");
           return;
         }
+
+        if (guesses.includes(guessToSubmit)) {
+          triggerShake();
+          addToast("Word already submitted!", "error");
+          return;
+        }
+
+        if (!data.includes(guessToSubmit)) {
+          triggerShake();
+          addToast("Incorrect word", "error");
+          return;
+        }
+        // -----------------------------
 
         if (onGuessSubmit && onGuessSubmit(guessToSubmit)) {
           setLastSubmittedTurn(turn);
@@ -92,14 +104,29 @@ export default function Tiles({
         setCurrentGuess((prev) => prev.slice(0, -1));
         return;
       }
-      if (/^[A-Za-z]$/.test(key) && currentGuess.length < 5) {
-        setCurrentGuess((prev) => (prev + key)?.toLowerCase());
+
+      // Check specifically for English alphabet letters
+      if (/^[a-zA-Z]$/.test(key)) {
+        if (currentGuess.length < 5) {
+          setCurrentGuess((prev) => (prev + key)?.toLowerCase());
+        }
+      } else if (key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // If user types a symbol/number/special char, show toast
+        addToast("Game only accepts English letters", "error");
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [currentGuess, turn, guesses, gameState, onGuessSubmit, onGameOver]);
+  }, [
+    currentGuess,
+    turn,
+    guesses,
+    gameState,
+    onGuessSubmit,
+    onGameOver,
+    addToast,
+  ]);
 
   const items = [];
   for (let i = 0; i < 6; i++) {
