@@ -14,8 +14,15 @@ import SurvivalGameModals from "../components/SurvivalGameModals";
 
 export default function Survival({ mode = "survival" }) {
   const [gameResetKey, setGameResetKey] = useState(0);
-  const [isModalOpen, setIsModalOpen] = useState([false, "playing"]);
   const [toasts, setToasts] = useState([]);
+  const [isModalOpen, setIsModalOpen] = useState(() => {
+    // Check the game state right when the component is created
+    if (game.gameState === "won") return [true, "won"];
+    if (game.gameState === "lost") {
+      return progress.hearts <= 0 ? [true, "game-over"] : [true, "lost-heart"];
+    }
+    return [false, "playing"];
+  });
 
   // 1. Core Game Logic Hook
   const game = useSurvivalGame(mode);
@@ -110,7 +117,7 @@ export default function Survival({ mode = "survival" }) {
         if (newHearts <= 0) setIsModalOpen([true, "game-over"]);
         else setIsModalOpen([true, "lost-heart"]);
       }
-    }, 2000);
+    }, 1500);
 
     if (result === "won-already") setIsModalOpen([true, "won"]);
     else if (result === "lost-already") {
