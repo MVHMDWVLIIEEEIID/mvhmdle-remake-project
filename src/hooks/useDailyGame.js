@@ -212,7 +212,7 @@ export default function useDailyGame(mode = "daily") {
   return {
     targetWord,
     guesses,
-    turn: guesses.length,
+    turn: gameState === "won" ? guesses.length - 1 : guesses.length,
     gameState,
     letters,
     lastChanged,

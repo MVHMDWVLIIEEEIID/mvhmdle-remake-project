@@ -5,7 +5,7 @@ const DEFAULT_HINTS = {
   "Vowel Letter": { cost: 500, bought: 0, desc: "Locate a hidden vowel." },
   "Yellow Letter": { cost: 500, bought: 0, desc: "Find a misplaced key." },
   "Green Letter": { cost: 800, bought: 0, desc: "Confirm a correct spot." },
-  Row: { cost: 1200, bought: 0, desc: "+1 Survival Attempt." },
+  Row: { cost: 1200, bought: 0, desc: "Get a Seventh Row" },
   Heart: { cost: 2000, bought: 0, desc: "+1 Extra Life." },
   "Beat The Game": { cost: 999999, bought: 0, desc: "Instant Extraction." },
 };
@@ -31,9 +31,12 @@ export default function useSurvivalProgress(mode) {
     const saved = localStorage.getItem(SHOP_DATA_KEY);
     if (saved) {
       const parsed = JSON.parse(saved);
-      const merged = { ...DEFAULT_HINTS };
+      // [FIX] Deep copy DEFAULT_HINTS to avoid mutating the original object
+      const merged = JSON.parse(JSON.stringify(DEFAULT_HINTS));
       Object.keys(merged).forEach((key) => {
-        if (parsed[key]) merged[key].bought = parsed[key].bought;
+        if (parsed[key]) {
+          merged[key].bought = parsed[key].bought;
+        }
       });
       return merged;
     }
@@ -130,10 +133,9 @@ export default function useSurvivalProgress(mode) {
     setStreak(0);
     setHearts(3);
     setCurrency(2500);
+    setGamesPlayed(0); // Next game init will make it 1
 
-    // IMPORTANT: Set to 0 so the next game init (which adds +1) results in Game 1
-    setGamesPlayed(0);
-
+    // [FIX] Ensure we use a fresh deep copy of defaults
     setHintsArray(JSON.parse(JSON.stringify(DEFAULT_HINTS)));
     setHintHistory([]);
     setHintsUsedInRound({});

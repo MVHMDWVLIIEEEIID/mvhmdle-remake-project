@@ -47,7 +47,6 @@ export default function Survival({ mode = "survival" }) {
   // --- Actions ---
 
   const handleResetWrapper = () => {
-    // Force Focus to Window
     document.activeElement.blur();
     window.focus();
 
@@ -59,7 +58,6 @@ export default function Survival({ mode = "survival" }) {
   };
 
   const handleFullReset = () => {
-    // Force Focus to Window
     document.activeElement.blur();
     window.focus();
 
@@ -68,16 +66,18 @@ export default function Survival({ mode = "survival" }) {
   };
 
   const handleGameOver = (result, guessCount) => {
-    // Force Focus to Window (Ensure no stray focus lingers)
     document.activeElement.blur();
     window.focus();
 
     setTimeout(() => {
       if (result === "won") {
-        const unusedRows = 6 - guessCount;
-        const BASE_WIN = 5000;
-        const SPEED_BONUS = unusedRows * 1500;
-        const STREAK_BONUS = (progress.streak + 1) * 200;
+        const unusedRows = game.maxTurns - guessCount;
+
+        // [REBALANCED] Adjusted for ~120-150 games to reach 1M
+        const BASE_WIN = 3000;
+        const SPEED_BONUS = unusedRows * 1000;
+        const STREAK_BONUS = (progress.streak + 1) * 150;
+
         const totalEarned = BASE_WIN + SPEED_BONUS + STREAK_BONUS;
 
         progress.setCurrency((prev) => prev + totalEarned);
@@ -128,7 +128,6 @@ export default function Survival({ mode = "survival" }) {
   };
 
   const handleBuyHint = (name, cost) => {
-    // Force Focus to Window (Critical for Shop buttons)
     document.activeElement.blur();
     window.focus();
 
@@ -137,14 +136,13 @@ export default function Survival({ mode = "survival" }) {
       return;
     }
 
-    // Hint Validation
     const usedCount = progress.hintsUsedInRound[name] || 0;
     if (name === "Hide a Letter" && usedCount >= 5) {
       addToast("Max usage reached!", "error");
       return;
     }
     if (
-      ["Green Letter", "Yellow Letter", "Vowel Letter", "Row"].includes(name) &&
+      ["Green Letter", "Yellow Letter", "Vowel Letter"].includes(name) &&
       usedCount >= 1
     ) {
       addToast("Already used this round!", "error");
@@ -160,11 +158,36 @@ export default function Survival({ mode = "survival" }) {
       success = true;
       addToast("Extra Life Purchased ❤️", "success");
     } else if (name === "Row") {
-      if (game.undoLastGuess()) {
-        logMsg = "Recovered 1 Attempt!";
-        success = true;
-        addToast("Attempt Recovered!", "success");
-      } else addToast("Nothing to undo!", "error");
+      game.addExtraRow();
+      success = true;
+      logMsg = "Added Extra Row!";
+      addToast("Row Added!", "success");
+    } else if (name === "Beat The Game") {
+      // [NEW] Logic for beating the game
+      success = true;
+      logMsg = "GAME BEATEN!";
+      // Trigger special confetti and modal
+      const end = Date.now() + 5000;
+      const colors = ["#FFFFFF", "#FFD700", "#FF0000", "#00FF00", "#0000FF"];
+      (function frame() {
+        confetti({
+          particleCount: 5,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: colors,
+        });
+        confetti({
+          particleCount: 5,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: colors,
+        });
+        if (Date.now() < end) requestAnimationFrame(frame);
+      })();
+
+      setIsModalOpen([true, "victory"]);
     } else {
       const solutionArr = game.targetWord.toLowerCase().split("");
 
@@ -229,14 +252,9 @@ export default function Survival({ mode = "survival" }) {
           "info",
         );
         success = true;
-      } else if (name === "Beat The Game") {
-        logMsg = `Word was: ${game.targetWord}`;
-        success = true;
-        addToast("Game Beaten!", "success");
       }
     }
 
-    // Transaction
     if (success) {
       progress.setCurrency((prev) => prev - cost);
       progress.setHintsArray((prev) => ({
@@ -257,7 +275,6 @@ export default function Survival({ mode = "survival" }) {
   };
 
   async function shareGame() {
-    // Force Focus to Window
     document.activeElement.blur();
     window.focus();
 
@@ -286,7 +303,7 @@ export default function Survival({ mode = "survival" }) {
       })
       .join("\n");
     const score = isModalOpen[1] === "won" ? game.guesses.length : "X";
-    const shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/6\n\n${grid}\n\nStreak: ${progress.streak}\nTotal: $${progress.currency.toLocaleString()} 💰`;
+    const shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/${game.maxTurns}\n\n${grid}\n\nStreak: ${progress.streak}\nTotal: $${progress.currency.toLocaleString()} 💰`;
     await navigator.clipboard.writeText(shareText);
     addToast("Copied!", "success");
   }
@@ -321,7 +338,7 @@ export default function Survival({ mode = "survival" }) {
       <div className="flex-1 center flex-col">
         <Header mode={`${mode.toUpperCase()} MODE`} streak={progress.streak} />
       </div>
-      <div className="flex-6 flex justify-center items-center gap-6 px-10">
+      <div className="flex-6 flex justify-center items-start gap-6 px-10 pt-8 overflow-y-auto clean-scroll">
         <div className="w-72">
           <Shop
             currency={progress.currency}
@@ -343,6 +360,7 @@ export default function Survival({ mode = "survival" }) {
             onGuessSubmit={(g) => game.submitGuess(g, handleGameOver)}
             onGameOver={handleGameOver}
             addToast={addToast}
+            rowCount={game.maxTurns}
           />
         </div>
         <div className="w-72">
@@ -360,7 +378,6 @@ export default function Survival({ mode = "survival" }) {
         isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen([false, isModalOpen[1]]);
-          // Force Focus here as well when clicking the "X" button
           document.activeElement.blur();
           window.focus();
         }}

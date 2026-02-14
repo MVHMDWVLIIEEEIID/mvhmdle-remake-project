@@ -111,7 +111,7 @@ export default function Daily({ mode = "daily" }) {
       await navigator.clipboard.writeText(shareText);
       addToast("Copied!", "success");
     } catch (err) {
-      console.log(err)
+      console.log(err);
       addToast("Failed to copy", "error");
     }
   };

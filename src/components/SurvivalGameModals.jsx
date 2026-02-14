@@ -108,6 +108,64 @@ export default function SurvivalGameModals({
   const [showModal, modalType] = isOpen;
 
   const getModalContent = () => {
+    // [NEW] Victory Modal for beating the game
+    if (modalType === "victory") {
+      return {
+        title: "YOU ARE A LEGEND",
+        status: "success",
+        content: (
+          <div className="flex flex-col items-center gap-6 w-full text-center">
+            <p className="text-sm font-bold text-gameGreen uppercase tracking-widest">
+              Survival Run Completed
+            </p>
+            <p className="text-lg text-white/80 leading-relaxed">
+              You have accumulated enough wealth to extract successfully.
+              <br />
+              <span className="text-gameYellow font-black">
+                $1,000,000 COLLECTED
+              </span>
+            </p>
+            <div className="bg-white/5 rounded-2xl p-6 w-full border border-gameGreen/20">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="flex flex-col">
+                  <span className="text-2xl font-black text-white">
+                    {stats.gamesPlayed}
+                  </span>
+                  <span className="text-[10px] text-white/40 uppercase font-bold tracking-widest">
+                    Games Played
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-2xl font-black text-gameYellow">
+                    {stats.hearts}
+                  </span>
+                  <span className="text-[10px] text-white/40 uppercase font-bold tracking-widest">
+                    Hearts Left
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        ),
+        footer: (
+          <div className="flex flex-col gap-3 w-full">
+            <button
+              onClick={onFullReset}
+              className="w-full bg-gameGreen text-gameDark font-black py-4 rounded-2xl shadow-lg shadow-gameGreen/20 transition-all hover:scale-105 active:scale-95 uppercase text-sm tracking-widest"
+            >
+              Start New Run
+            </button>
+            <button
+              onClick={onClose}
+              className="text-xs text-white/30 uppercase font-bold hover:text-white transition-colors py-2"
+            >
+              Stay Here (Endless)
+            </button>
+          </div>
+        ),
+      };
+    }
+
     if (modalType === "won") {
       return {
         title: "You Won",
@@ -290,3 +348,4 @@ export default function SurvivalGameModals({
     </Modal>
   );
 }
+  

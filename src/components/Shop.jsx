@@ -1,9 +1,10 @@
+import React from "react";
+
 export default function Shop({
   currency,
   hintsArray,
   onBuyHint,
   hintsUsedInRound = {},
-  hasGuesses = false,
   gameState,
   isModalOpen,
 }) {
@@ -27,11 +28,8 @@ export default function Shop({
           let currentPrice;
 
           if (name === "Hide a Letter") {
-            // Linear stacking for the multi-buy item
-            // 500, 650, 800, 950, 1100, 1250...
             currentPrice = data.cost + (data.bought || 0) * 150;
           } else {
-            // Exponential but gentler for powerful one-time hints
             currentPrice = Math.floor(
               data.cost * Math.pow(1.25, data.bought || 0),
             );
@@ -40,8 +38,6 @@ export default function Shop({
           const usedCount = hintsUsedInRound[name] || 0;
 
           // --- LOCKING LOGIC ---
-          // Round is considered "over" when gameState is no longer 'playing'
-          // We also check isModalOpen to keep it locked while the result screen is up
           const isRoundOver = gameState !== "playing" || isModalOpen;
 
           let isLocked = false;
@@ -49,14 +45,18 @@ export default function Shop({
           if (name === "Hide a Letter") {
             isLocked = usedCount >= 5;
           } else if (
-            ["Green Letter", "Yellow Letter", "Vowel Letter"].includes(name)
+            // [UPDATED] Added "Row" and "Heart" to the single-use list
+            [
+              "Green Letter",
+              "Yellow Letter",
+              "Vowel Letter",
+              "Row",
+              "Heart",
+            ].includes(name)
           ) {
             isLocked = usedCount >= 1;
-          } else if (name === "Row") {
-            isLocked = !hasGuesses || usedCount >= 1;
           }
 
-          // Shop buttons are disabled if: can't afford, hit usage limit, or round ended
           const isDisabled = !canAfford || isLocked || isRoundOver;
 
           return (

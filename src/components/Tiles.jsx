@@ -9,6 +9,7 @@ export default function Tiles({
   onGuessSubmit,
   onGameOver,
   addToast,
+  rowCount = 6, // [NEW] Default to 6, but allow overrides
 }) {
   const [currentGuess, setCurrentGuess] = useState("");
   const [solution] = useState(targetWord?.toLowerCase());
@@ -20,25 +21,18 @@ export default function Tiles({
     setTimeout(() => setShake(false), 500);
   };
 
-  // --- DELETED USEEFFECT ---
-  // We do not need useEffect to sync state here.
-  // We will handle the cleanup directly in handleKeyDown.
-  // -------------------------
-
   const getGuessStatuses = useCallback(
     (guessStr) => {
       const splitSolution = solution.split("");
       const splitGuess = guessStr.split("");
       const statuses = Array(5).fill("bg-gameGrey");
 
-      // Green Pass
       splitGuess.forEach((char, i) => {
         if (char === splitSolution[i]) {
           statuses[i] = "bg-gameGreen";
           splitSolution[i] = null;
         }
       });
-      // Yellow Pass
       splitGuess.forEach((char, i) => {
         if (statuses[i] !== "bg-gameGreen") {
           const index = splitSolution.indexOf(char);
@@ -62,7 +56,8 @@ export default function Tiles({
       const key = e.key;
 
       if (key === "Enter") {
-        if (gameState !== "playing" || turn >= 6) {
+        // [UPDATED] Use rowCount instead of hardcoded 6
+        if (gameState !== "playing" || turn >= rowCount) {
           if (gameState === "won") onGameOver("won-already");
           else onGameOver("lost-already");
           return;
@@ -70,7 +65,6 @@ export default function Tiles({
 
         const guessToSubmit = currentGuess?.toLowerCase();
 
-        // Validation
         if (guessToSubmit.length !== 5) {
           triggerShake();
           if (addToast) addToast("Not enough letters!", "error");
@@ -87,16 +81,14 @@ export default function Tiles({
           return;
         }
 
-        // --- SUBMIT LOGIC (MOVED HERE) ---
         if (onGuessSubmit && onGuessSubmit(guessToSubmit)) {
-          // 1. Trigger the animation for the row we just finished
           setLastSubmittedTurn(turn);
-          // 2. Clear the input immediately for the next turn
           setCurrentGuess("");
         }
       }
 
-      if (gameState !== "playing" || turn >= 6) return;
+      // [UPDATED] Use rowCount check
+      if (gameState !== "playing" || turn >= rowCount) return;
 
       if (key === "Backspace") {
         setCurrentGuess((prev) => prev.slice(0, -1));
@@ -122,15 +114,17 @@ export default function Tiles({
     onGuessSubmit,
     onGameOver,
     addToast,
+    rowCount, // [NEW] Dependency
   ]);
 
   const items = [];
-  for (let i = 0; i < 6; i++) {
+  // [UPDATED] Loop based on rowCount prop
+  for (let i = 0; i < rowCount; i++) {
     const isPrevRow = i < turn || (gameState === "won" && i === turn);
     const isCurrentRow = i === turn && gameState === "playing";
 
-    // Logic to ensure we only flip the row we just submitted
-    const shouldFlip = i === lastSubmittedTurn;
+    // [FIX] Ensure we only animate if the guess actually exists
+    const shouldFlip = i === lastSubmittedTurn && guesses[i];
 
     let rowLetters = Array(5).fill("");
     let rowStatuses = Array(5).fill("");

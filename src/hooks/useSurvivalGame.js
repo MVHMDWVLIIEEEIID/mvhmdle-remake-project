@@ -7,6 +7,7 @@ export default function useSurvivalGame(mode) {
   const TILES_GUESSES_KEY = `${mode}-guesses`;
   const TILES_TURN_KEY = `${mode}-turn`;
   const DATE_KEY = `${mode}-date`;
+  const MAX_TURNS_KEY = `${mode}-max-turns`; // [NEW] Key
   const today = new Date().toDateString();
 
   const getInitialLetters = () => ({
@@ -45,6 +46,12 @@ export default function useSurvivalGame(mode) {
     return Math.floor(Math.random() * solutionWords.length);
   }
 
+  // [NEW] Max Turns State
+  const [maxTurns, setMaxTurns] = useState(() => {
+    const savedMax = localStorage.getItem(MAX_TURNS_KEY);
+    return savedMax ? parseInt(savedMax) : 6;
+  });
+
   const [random, setRandom] = useState(() => {
     const savedIndex = localStorage.getItem(INDEX_KEY);
     return savedIndex ? parseInt(savedIndex) : getRandom();
@@ -66,7 +73,7 @@ export default function useSurvivalGame(mode) {
   const [gameState, setGameState] = useState(() => {
     const lastGuess = guesses[guesses.length - 1];
     if (lastGuess === targetWord?.toLowerCase()) return "won";
-    if (turn >= 6) return "lost";
+    if (turn >= maxTurns) return "lost"; // [UPDATED]
     return "playing";
   });
 
@@ -86,6 +93,10 @@ export default function useSurvivalGame(mode) {
   });
 
   // Persistence
+  useEffect(() => {
+    localStorage.setItem(MAX_TURNS_KEY, maxTurns.toString());
+  }, [maxTurns, MAX_TURNS_KEY]);
+
   useEffect(() => {
     localStorage.setItem(LETTERS_KEY, JSON.stringify(letters));
     localStorage.setItem(INDEX_KEY, random.toString());
@@ -157,17 +168,21 @@ export default function useSurvivalGame(mode) {
 
     if (guess === targetWord.toLowerCase()) {
       setGameState("won");
-      // Pass guess count to calculate score
       onGameOver("won", newGuesses.length);
     } else {
       const newTurn = turn + 1;
       setTurn(newTurn);
-      if (newTurn >= 6) {
+      if (newTurn >= maxTurns) {
+        // [UPDATED]
         setGameState("lost");
-        onGameOver("lost", 6);
+        onGameOver("lost", maxTurns);
       }
     }
     return true;
+  };
+
+  const addExtraRow = () => {
+    setMaxTurns((prev) => prev + 1);
   };
 
   const resetGame = () => {
@@ -175,6 +190,7 @@ export default function useSurvivalGame(mode) {
     localStorage.removeItem(LETTERS_KEY);
     localStorage.removeItem(TILES_GUESSES_KEY);
     localStorage.removeItem(TILES_TURN_KEY);
+    localStorage.removeItem(MAX_TURNS_KEY);
 
     const newIndex = getRandom();
     setRandom(newIndex);
@@ -182,6 +198,10 @@ export default function useSurvivalGame(mode) {
     setLastChanged({ letter: null, timestamp: 0 });
     setGuesses([]);
     setTurn(0);
+
+    // [CRITICAL] Reset maxTurns state, otherwise it stays high
+    setMaxTurns(6);
+
     setGameState("playing");
   };
 
@@ -199,6 +219,7 @@ export default function useSurvivalGame(mode) {
     targetWord,
     guesses,
     turn,
+    maxTurns, // [NEW]
     gameState,
     letters,
     lastChanged,
@@ -206,5 +227,6 @@ export default function useSurvivalGame(mode) {
     submitGuess,
     resetGame,
     undoLastGuess,
+    addExtraRow, // [NEW]
   };
 }
