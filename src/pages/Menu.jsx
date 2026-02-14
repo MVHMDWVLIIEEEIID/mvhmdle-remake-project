@@ -9,7 +9,7 @@ export default function Menu() {
         Mvmhdle
       </div>
       <div className="flex-7 h-0 center">
-        <div className=" flex flex-col w-1/2 gap-3.5">
+        <div className=" flex flex-col w-1/2 lg:w-1/3 gap-3.5">
           {
             tabsArray.map((tab) => {
               return <Link to={`/${tab.toLowerCase()}`} className="text-center text-3xl py-4 rounded-2xl border-2 border-gameLight hover:bg-gameLight/95 hover:text-gameDark transition-all duration-200 uppercase m-auto w-full active:bg-gameLight">{tab}</Link>

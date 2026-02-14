@@ -181,5 +181,5 @@ export default function Tiles({
     }
   }
 
-  return <div className="grid grid-cols-5">{items}</div>;
+  return <div className="grid grid-cols-5 gap-0.5 w-fit mx-auto">{items}</div>;
 }

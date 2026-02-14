@@ -4,6 +4,8 @@ export default function Shop({
   onBuyHint,
   hintsUsedInRound = {},
   hasGuesses = false,
+  gameState,
+  isModalOpen,
 }) {
   return (
     <div className="h-72 w-72 text-gameLight rounded-lg flex flex-col bg-[#0a0a0a] border-2 border-gameLight shadow-[0_0_15px_rgba(0,0,0,0.5)] overflow-hidden font-sans">
@@ -22,15 +24,28 @@ export default function Shop({
 
       <div className="flex-1 overflow-y-auto clean-scroll">
         {Object.entries(hintsArray).map(([name, data]) => {
-          const currentPrice = Math.floor(
-            data.cost * Math.pow(1.5, data.bought || 0),
-          );
-          const canAfford = currency >= currentPrice;
+          let currentPrice;
 
+          if (name === "Hide a Letter") {
+            // Linear stacking for the multi-buy item
+            // 500, 650, 800, 950, 1100, 1250...
+            currentPrice = data.cost + (data.bought || 0) * 150;
+          } else {
+            // Exponential but gentler for powerful one-time hints
+            currentPrice = Math.floor(
+              data.cost * Math.pow(1.25, data.bought || 0),
+            );
+          }
+          const canAfford = currency >= currentPrice;
           const usedCount = hintsUsedInRound[name] || 0;
+
+          // --- LOCKING LOGIC ---
+          // Round is considered "over" when gameState is no longer 'playing'
+          // We also check isModalOpen to keep it locked while the result screen is up
+          const isRoundOver = gameState !== "playing" || isModalOpen;
+
           let isLocked = false;
 
-          // --- Locking Logic ---
           if (name === "Hide a Letter") {
             isLocked = usedCount >= 5;
           } else if (
@@ -38,26 +53,30 @@ export default function Shop({
           ) {
             isLocked = usedCount >= 1;
           } else if (name === "Row") {
-            // Locked if no guesses OR if already used once this round
             isLocked = !hasGuesses || usedCount >= 1;
           }
 
-          const isClickable = canAfford && !isLocked;
+          // Shop buttons are disabled if: can't afford, hit usage limit, or round ended
+          const isDisabled = !canAfford || isLocked || isRoundOver;
 
           return (
             <button
               key={name}
               onClick={() => onBuyHint(name, currentPrice)}
-              disabled={!isClickable}
+              disabled={isDisabled}
               className={`group w-full border-b border-gameLight/10 px-3 py-2.5 transition-all duration-200 flex flex-col h-14 justify-center relative
-                ${isClickable ? "hover:bg-gameLight/5 active:bg-gameLight/10 cursor-pointer" : "opacity-30 cursor-not-allowed"}
+                ${!isDisabled ? "hover:bg-gameLight/5 active:bg-gameLight/10 cursor-pointer" : "opacity-30 cursor-not-allowed"}
               `}
             >
-              {/* Highlight Bar on Hover */}
-              <div className="absolute left-0 top-0 bottom-0 w-1 bg-gameLight scale-y-0 group-hover:scale-y-100 transition-transform duration-200" />
+              {/* Highlight Bar */}
+              {!isDisabled && (
+                <div className="absolute left-0 top-0 bottom-0 w-1 bg-gameLight scale-y-0 group-hover:scale-y-100 transition-transform duration-200" />
+              )}
 
               <div className="flex justify-between w-full items-center mb-0.5">
-                <span className="text-xs font-black uppercase tracking-tight text-white group-hover:text-gameLight transition-colors">
+                <span
+                  className={`text-xs font-black uppercase tracking-tight transition-colors ${!isDisabled ? "text-white group-hover:text-gameLight" : "text-white/40"}`}
+                >
                   {name}
                 </span>
                 <span
@@ -77,10 +96,7 @@ export default function Shop({
                 </p>
                 {data.bought > 0 && (
                   <span className="text-[8px] text-yellow-600 font-bold">
-                    Bought :{" "}
-                    {data.bought > 1
-                      ? data.bought + " Times"
-                      : data.bought + " Time"}
+                    Bought : {data.bought} {data.bought > 1 ? "Times" : "Time"}
                   </span>
                 )}
               </div>

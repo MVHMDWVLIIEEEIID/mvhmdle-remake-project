@@ -1,194 +1,192 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import Header from "../components/Header";
 import Keyboard from "../components/Keyboard";
 import Tiles from "../components/Tiles";
-import Modal from "../components/Modal";
-import data from "../data/words.json";
+import DailyGameModals from "../components/DailyGameModals";
+import useDailyGame from "../hooks/useDailyGame";
+import Toast from "../components/Toast";
+import confetti from "canvas-confetti"; // Import confetti
 
 export default function Daily({ mode = "daily" }) {
-  const todayDate = new Date();
-  const todayString = todayDate.toDateString();
-  const [isModalOpen, setIsModalOpen] = useState([false, "lost"]);
+  // 1. Call the hook FIRST
+  const game = useDailyGame(mode);
 
-  // gameResetKey is used as a 'key' on <Tiles /> to force a hard-reset of that component
-  const [gameResetKey, setGameResetKey] = useState(0);
+  // 2. Initialize Modal State
+  const [isModalOpen, setIsModalOpen] = useState(() => {
+    if (game.gameState === "won") return [true, "won"];
+    if (game.gameState === "lost") return [true, "lost"];
+    return [false, "playing"];
+  });
 
-  const solutionWords = data.slice(0, 2314);
+  const [toasts, setToasts] = useState([]);
 
-  // Determine which word index to use based on days passed since Unix epoch
-  const getDailyIndex = () => {
-    const totalDays = Math.floor(todayDate.getTime() / (1000 * 60 * 60 * 24));
-    return totalDays % solutionWords.length;
+  const addToast = (msg, type = "info") => {
+    const id = Date.now() + Math.random();
+    setToasts((prev) => [...prev.slice(-2), { id, msg, type }]);
+    setTimeout(
+      () => setToasts((prev) => prev.filter((t) => t.id !== id)),
+      2500,
+    );
   };
 
-  // --- Constants for Storage Keys ---
-  const LETTERS_KEY = `wordle-letters-${mode}`;
-  const INDEX_KEY = `wordle-solution-index-${mode}`;
-  const DATE_KEY = `wordle-date-${mode}`;
+  // --- NEW: Advanced Confetti Animation ---
+  const handleConfetti = () => {
+    const end = Date.now() + 3000;
+    const colors = ["#ed143d", "#3498db", "#ffd500", "#00e196"];
 
-  // Storage keys used by the Tiles component to be cleared on reset
-  const TILES_GUESSES_KEY = `${mode}-guesses`;
-  const TILES_TURN_KEY = `${mode}-turn`;
-  const TILES_DATE_KEY = `${mode}-date`;
+    const frame = () => {
+      if (Date.now() > end) return;
 
-  // Default state for a fresh keyboard
-  const getInitialLetters = () => ({
-    q: { color: " bg-gameLight ", row: 1 },
-    w: { color: " bg-gameLight ", row: 1 },
-    e: { color: " bg-gameLight ", row: 1 },
-    r: { color: " bg-gameLight ", row: 1 },
-    t: { color: " bg-gameLight ", row: 1 },
-    y: { color: " bg-gameLight ", row: 1 },
-    u: { color: " bg-gameLight ", row: 1 },
-    i: { color: " bg-gameLight ", row: 1 },
-    o: { color: " bg-gameLight ", row: 1 },
-    p: { color: " bg-gameLight ", row: 1 },
-    a: { color: " bg-gameLight ", row: 2 },
-    s: { color: " bg-gameLight ", row: 2 },
-    d: { color: " bg-gameLight ", row: 2 },
-    f: { color: " bg-gameLight ", row: 2 },
-    g: { color: " bg-gameLight ", row: 2 },
-    h: { color: " bg-gameLight ", row: 2 },
-    j: { color: " bg-gameLight ", row: 2 },
-    k: { color: " bg-gameLight ", row: 2 },
-    l: { color: " bg-gameLight ", row: 2 },
-    enter: { color: " bg-gameLight ", row: 3, big: true },
-    z: { color: " bg-gameLight ", row: 3 },
-    x: { color: " bg-gameLight ", row: 3 },
-    c: { color: " bg-gameLight ", row: 3 },
-    v: { color: " bg-gameLight ", row: 3 },
-    b: { color: " bg-gameLight ", row: 3 },
-    n: { color: " bg-gameLight ", row: 3 },
-    m: { color: " bg-gameLight ", row: 3 },
-    back: { color: " bg-gameLight ", row: 3, big: true },
-  });
+      // Left side confetti
+      confetti({
+        particleCount: 4,
+        angle: 90,
+        spread: 75,
+        origin: { x: 0, y: 0.75 },
+        colors,
+      });
 
-  // Load word index from storage or calculate new daily index
-  const [random] = useState(() => {
-    const savedDate = localStorage.getItem(DATE_KEY);
-    if (savedDate !== todayString) return getDailyIndex();
-    const savedIndex = localStorage.getItem(INDEX_KEY);
-    return savedIndex ? parseInt(savedIndex) : getDailyIndex();
-  });
+      // Right side confetti
+      confetti({
+        particleCount: 4,
+        angle: 90,
+        spread: 75,
+        origin: { x: 1, y: 0.75 },
+        colors,
+      });
 
-  // Load keyboard status from storage
-  const [letters, setLetters] = useState(() => {
-    const savedDate = localStorage.getItem(DATE_KEY);
-    const savedLetters = localStorage.getItem(LETTERS_KEY);
-    return savedDate === todayString && savedLetters
-      ? JSON.parse(savedLetters)
-      : getInitialLetters();
-  });
+      requestAnimationFrame(frame);
+    };
 
-  const [lastChanged, setLastChanged] = useState({
-    letter: null,
-    timestamp: 0,
-  });
-
-  const targetWord = solutionWords[random];
-
-  // Keep LocalStorage in sync with game state
-  useEffect(() => {
-    localStorage.setItem(LETTERS_KEY, JSON.stringify(letters));
-    localStorage.setItem(INDEX_KEY, random.toString());
-    localStorage.setItem(DATE_KEY, todayString);
-  }, [letters, random, todayString, LETTERS_KEY, INDEX_KEY, DATE_KEY]);
-
-  // Update keyboard colors based on guess results
-  const changeColor = (newColor, letterKey) => {
-    const key = letterKey.toLowerCase();
-    setLetters((prev) => {
-      const current = prev[key];
-      if (!current) return prev;
-
-      // Hierarchy logic: Green beats Yellow, Yellow beats Grey
-      const currentColor = current.color;
-      if (currentColor.includes("bg-gameGreen")) return prev;
-      if (
-        currentColor.includes("bg-gameYellow") &&
-        !newColor.includes("bg-gameGreen")
-      )
-        return prev;
-      if (
-        currentColor.includes("bg-gameGrey") &&
-        newColor.includes("bg-gameGrey")
-      )
-        return prev;
-
-      setLastChanged({ letter: key, timestamp: Date.now() });
-      return { ...prev, [key]: { ...current, color: newColor } };
-    });
-  };
-
-  // --- DEBUG RESET FUNCTION ---
-  // Wipes LocalStorage and resets state to restart the game
-  const handleReset = (e) => {
-    e.currentTarget.blur(); // Remove focus so typing still works
-    localStorage.removeItem(LETTERS_KEY);
-    localStorage.removeItem(TILES_GUESSES_KEY);
-    localStorage.removeItem(TILES_TURN_KEY);
-    localStorage.removeItem(TILES_DATE_KEY);
-
-    setLetters(getInitialLetters());
-    setLastChanged({ letter: null, timestamp: 0 });
-    setGameResetKey((prev) => prev + 1); // Changing the key prop forces Tiles to remount
+    frame();
   };
 
   const handleGameOver = (result) => {
-    if (result === "won") {
-      setTimeout(() => setIsModalOpen([true, "won"]), 1500);
-    } else if (result === "lost") {
-      setTimeout(() => setIsModalOpen([true, "lost"]), 1500);
-    } else if (result === "won-already") {
-      setIsModalOpen([true, "won"]);
-    } else if (result === "lost-already") {
-      setIsModalOpen([true, "lost"]);
+    setTimeout(() => {
+      if (result === "won") {
+        setIsModalOpen([true, "won"]);
+        // Trigger the new advanced confetti animation
+        handleConfetti();
+      } else if (result === "lost") {
+        setIsModalOpen([true, "lost"]);
+      }
+    }, 1500);
+  };
+
+  const handleShare = async () => {
+    if (game.guesses.length === 0) return;
+
+    const grid = game.guesses
+      .map((guess) => {
+        const splitSolution = game.targetWord.toLowerCase().split("");
+        const splitGuess = guess.toLowerCase().split("");
+        const statuses = Array(5).fill("⬛");
+
+        // 1. Green Pass
+        splitGuess.forEach((char, i) => {
+          if (char === splitSolution[i]) {
+            statuses[i] = "🟩";
+            splitSolution[i] = null;
+          }
+        });
+
+        // 2. Yellow Pass
+        splitGuess.forEach((char, i) => {
+          if (statuses[i] !== "🟩") {
+            const idx = splitSolution.indexOf(char);
+            if (idx !== -1) {
+              statuses[i] = "🟨";
+              splitSolution[idx] = null;
+            }
+          }
+        });
+        return statuses.join("");
+      })
+      .join("\n");
+
+    const score = game.gameState === "won" ? game.guesses.length : "X";
+    const shareText = `MVHMDLE DAILY ${score}/6\n\n${grid}\n\nStreak: ${game.streak}${game.streak > 3 ? " 🔥" : ""}`;
+
+    try {
+      await navigator.clipboard.writeText(shareText);
+      addToast("Copied!", "success");
+    } catch (err) {
+      console.log(err)
+      addToast("Failed to copy", "error");
     }
+  };
+
+  // --- DEBUG RESET FUNCTION ---
+  const handleDebugReset = (e) => {
+    e.target.blur(); // Remove focus
+    const keys = [
+      `wordle-guesses-${mode}`,
+      `wordle-letters-${mode}`,
+      `wordle-state-${mode}`,
+      `wordle-last-played-${mode}`,
+    ];
+    keys.forEach((key) => localStorage.removeItem(key));
+    window.location.reload();
   };
 
   return (
     <div className="flex flex-col h-screen relative overflow-hidden bg-gameDark text-white">
-      <div className="flex-1 center">
-        <Header mode={`${mode.charAt(0).toUpperCase() + mode.slice(1)} Mode`} />
+      <Toast toasts={toasts} />
+
+      {/* Header with Streak */}
+      <div className="flex-1 center flex-col">
+        <Header
+          mode="DAILY CHALLENGE"
+          streak={game.streak > 3 ? `${game.streak} 🔥` : game.streak}
+        />
       </div>
-      <div className="flex-6 center">
-        <div className="w-1/2 h-full center">
-          {/* Key prop ensures the whole component restarts on reset */}
+
+      {/* Game Board */}
+      <div className="flex-6 flex justify-center items-center">
+        <div className="w-96">
           <Tiles
-            key={gameResetKey}
-            targetWord={targetWord}
-            changeColor={changeColor}
-            storageKey={mode}
-            onGameOver={handleGameOver}
+            guesses={game.guesses}
+            turn={game.turn}
+            targetWord={game.targetWord}
+            gameState={game.gameState}
+            onGuessSubmit={(g) => game.submitGuess(g, handleGameOver)}
+            onGameOver={(res) => {
+              if (res === "won-already" || res === "lost-already") {
+                setIsModalOpen([true, game.gameState]);
+              }
+            }}
+            addToast={addToast}
           />
         </div>
       </div>
+
+      {/* Keyboard */}
       <div className="flex-5 center shrink-0 mb-4">
-        <Keyboard letters={letters} lastChanged={lastChanged} />
+        <Keyboard letters={game.letters} lastChanged={game.lastChanged} />
       </div>
 
-      {/* Debug Reset Button positioned at bottom-right */}
+      {/* DEBUG BUTTON */}
       <button
-        onClick={handleReset}
-        className="absolute bottom-4 right-4 bg-gameRed hover:bg-red-700 text-white font-bold py-2 px-4 rounded shadow-lg text-sm z-50 transition-colors"
+        onClick={handleDebugReset}
+        className="absolute bottom-4 right-4 bg-red-600/20 hover:bg-red-600 text-white/50 hover:text-white text-[10px] font-bold py-2 px-3 rounded-lg border border-red-600/30 transition-all z-50 uppercase tracking-widest"
       >
-        Reset Game ({targetWord.toUpperCase()})
+        Reset Daily
       </button>
 
-      <Modal
-        isOpen={isModalOpen[0]}
+      {/* Modals */}
+      <DailyGameModals
+        isOpen={isModalOpen}
         onClose={() => {
           setIsModalOpen([false, isModalOpen[1]]);
           document.activeElement.blur();
           window.focus();
         }}
-        title={isModalOpen[1] === "won" ? "You Won" : "Game Over"}
-      >
-        <p className="text-lg">Great job! You found the word.</p>
-        <p className="mt-2 text-sm opacity-70">
-          Would you like to try another one?
-        </p>
-      </Modal>
+        onShare={handleShare}
+        stats={{
+          targetWord: game.targetWord,
+          streak: game.streak,
+        }}
+      />
     </div>
   );
 }
