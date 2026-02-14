@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import data from "../data/words.json";
+import { secureStorage } from "../utils/secureStorage"; // [NEW] Import
 
 // Initial Keyboard State
 const getInitialLetters = () => ({
@@ -41,12 +42,10 @@ export default function useDailyGame(mode = "daily") {
   const LAST_PLAYED_KEY = `wordle-last-played-${mode}`;
   const STREAK_KEY = `wordle-daily-streak-${mode}`;
 
-  // Date Logic: Memoize the date string to prevent effect loops
+  // Date Logic
   const todayString = useMemo(() => new Date().toDateString(), []);
 
   // --- Word Selection Logic ---
-  // We calculate days passed since a fixed Epoch (Jan 1, 2024)
-  // This ensures the word index is the same for every player on the same date.
   const solutionWords = data.slice(0, 2314);
 
   const getDailyIndex = () => {
@@ -58,45 +57,46 @@ export default function useDailyGame(mode = "daily") {
 
   const targetWord = solutionWords[getDailyIndex()];
 
-  // --- Lazy State Initialization ---
+  // --- Lazy State Initialization with Encryption ---
 
   const [guesses, setGuesses] = useState(() => {
-    const savedDate = localStorage.getItem(LAST_PLAYED_KEY);
+    // [UPDATED] Use secureStorage.getItem
+    const savedDate = secureStorage.getItem(LAST_PLAYED_KEY, null);
     if (savedDate === todayString) {
-      return JSON.parse(localStorage.getItem(GUESSES_KEY) || "[]");
+      return secureStorage.getItem(GUESSES_KEY, []);
     }
     return [];
   });
 
   const [gameState, setGameState] = useState(() => {
-    const savedDate = localStorage.getItem(LAST_PLAYED_KEY);
+    // [UPDATED] Use secureStorage.getItem
+    const savedDate = secureStorage.getItem(LAST_PLAYED_KEY, null);
     if (savedDate === todayString) {
-      return localStorage.getItem(GAME_STATE_KEY) || "playing";
+      return secureStorage.getItem(GAME_STATE_KEY, "playing");
     }
     return "playing";
   });
 
   const [letters, setLetters] = useState(() => {
-    const savedDate = localStorage.getItem(LAST_PLAYED_KEY);
+    // [UPDATED] Use secureStorage.getItem
+    const savedDate = secureStorage.getItem(LAST_PLAYED_KEY, null);
     if (savedDate === todayString) {
-      return (
-        JSON.parse(localStorage.getItem(LETTERS_KEY) || "null") ||
-        getInitialLetters()
-      );
+      return secureStorage.getItem(LETTERS_KEY, getInitialLetters());
     }
     return getInitialLetters();
   });
 
   const [streak, setStreak] = useState(() => {
-    const savedDate = localStorage.getItem(LAST_PLAYED_KEY);
-    const savedStreak = parseInt(localStorage.getItem(STREAK_KEY) || "0");
+    // [UPDATED] Use secureStorage.getItem
+    const savedDate = secureStorage.getItem(LAST_PLAYED_KEY, null);
+    // Note: secureStorage handles type parsing, so we don't need parseInt
+    const savedStreak = secureStorage.getItem(STREAK_KEY, 0);
 
     if (savedDate === todayString) return savedStreak;
 
     if (savedDate) {
       const lastDate = new Date(savedDate);
       const currentToday = new Date();
-      // Reset hours to compare pure dates
       lastDate.setHours(0, 0, 0, 0);
       currentToday.setHours(0, 0, 0, 0);
 
@@ -104,9 +104,7 @@ export default function useDailyGame(mode = "daily") {
         (currentToday - lastDate) / (1000 * 60 * 60 * 24),
       );
 
-      // If difference is greater than 1 day, the user missed yesterday
       if (dayDiff > 1) return 0;
-
       return savedStreak;
     }
     return 0;
@@ -117,13 +115,14 @@ export default function useDailyGame(mode = "daily") {
     timestamp: 0,
   });
 
-  // --- Persistence ---
+  // --- Persistence with Encryption ---
   useEffect(() => {
-    localStorage.setItem(LAST_PLAYED_KEY, todayString);
-    localStorage.setItem(GUESSES_KEY, JSON.stringify(guesses));
-    localStorage.setItem(LETTERS_KEY, JSON.stringify(letters));
-    localStorage.setItem(GAME_STATE_KEY, gameState);
-    localStorage.setItem(STREAK_KEY, streak.toString());
+    // [UPDATED] Replace localStorage.setItem with secureStorage.setItem
+    secureStorage.setItem(LAST_PLAYED_KEY, todayString);
+    secureStorage.setItem(GUESSES_KEY, guesses);
+    secureStorage.setItem(LETTERS_KEY, letters);
+    secureStorage.setItem(GAME_STATE_KEY, gameState);
+    secureStorage.setItem(STREAK_KEY, streak);
   }, [
     guesses,
     letters,
@@ -137,7 +136,7 @@ export default function useDailyGame(mode = "daily") {
     STREAK_KEY,
   ]);
 
-  // --- Game Logic ---
+  // --- Game Logic (Unchanged) ---
   const getGuessStatuses = (guessStr) => {
     const solution = targetWord.toLowerCase();
     const splitSolution = solution.split("");

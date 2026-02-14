@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { secureStorage } from "../utils/secureStorage"; // [NEW] Import
 
 const DEFAULT_HINTS = {
   "Hide a Letter": { cost: 500, bought: 0, desc: "Discard 1 incorrect key." },
@@ -21,17 +22,17 @@ export default function useSurvivalProgress(mode) {
   const LAST_REWARD_KEY = `wordle-last-reward-${mode}`;
   const GAMES_PLAYED_KEY = `wordle-games-played-${mode}`;
 
-  // State Initializers
+  // State Initializers with Encryption
   const [currency, setCurrency] = useState(() => {
-    const saved = localStorage.getItem(CURRENCY_KEY);
-    return saved ? parseInt(saved) : 2500;
+    // [UPDATED] secureStorage automatically handles type conversion (int)
+    return secureStorage.getItem(CURRENCY_KEY, 2500);
   });
 
   const [hintsArray, setHintsArray] = useState(() => {
-    const saved = localStorage.getItem(SHOP_DATA_KEY);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      // [FIX] Deep copy DEFAULT_HINTS to avoid mutating the original object
+    // [UPDATED] secureStorage automatically parses JSON
+    const parsed = secureStorage.getItem(SHOP_DATA_KEY, null);
+    if (parsed) {
+      // Deep copy DEFAULT_HINTS to avoid mutating the original object
       const merged = JSON.parse(JSON.stringify(DEFAULT_HINTS));
       Object.keys(merged).forEach((key) => {
         if (parsed[key]) {
@@ -44,70 +45,68 @@ export default function useSurvivalProgress(mode) {
   });
 
   const [hintsUsedInRound, setHintsUsedInRound] = useState(() => {
-    const saved = localStorage.getItem(HINTS_USED_KEY);
-    return saved ? JSON.parse(saved) : {};
+    // [UPDATED]
+    return secureStorage.getItem(HINTS_USED_KEY, {});
   });
 
   const [hintHistory, setHintHistory] = useState(() => {
-    const saved = localStorage.getItem(HINT_HISTORY_KEY);
-    return saved ? JSON.parse(saved) : [];
+    // [UPDATED]
+    return secureStorage.getItem(HINT_HISTORY_KEY, []);
   });
 
   const [hearts, setHearts] = useState(() => {
-    const saved = localStorage.getItem(HEARTS_KEY);
-    return saved ? parseInt(saved) : 3;
+    // [UPDATED]
+    return secureStorage.getItem(HEARTS_KEY, 3);
   });
 
   const [streak, setStreak] = useState(() => {
-    const saved = localStorage.getItem(STREAK_KEY);
-    return saved ? parseInt(saved) : 0;
+    // [UPDATED]
+    return secureStorage.getItem(STREAK_KEY, 0);
   });
 
   const [lastReward, setLastReward] = useState(() => {
-    const saved = localStorage.getItem(LAST_REWARD_KEY);
-    return saved ? JSON.parse(saved) : null;
+    // [UPDATED]
+    return secureStorage.getItem(LAST_REWARD_KEY, null);
   });
 
   const [gamesPlayed, setGamesPlayed] = useState(() => {
-    const saved = localStorage.getItem(GAMES_PLAYED_KEY);
-    return saved ? parseInt(saved) : 1;
+    // [UPDATED]
+    return secureStorage.getItem(GAMES_PLAYED_KEY, 1);
   });
 
-  // Effects for Persistence
+  // Effects for Persistence with Encryption
   useEffect(
-    () => localStorage.setItem(CURRENCY_KEY, currency.toString()),
+    () => secureStorage.setItem(CURRENCY_KEY, currency),
     [currency, CURRENCY_KEY],
   );
   useEffect(
-    () => localStorage.setItem(SHOP_DATA_KEY, JSON.stringify(hintsArray)),
+    () => secureStorage.setItem(SHOP_DATA_KEY, hintsArray),
     [hintsArray, SHOP_DATA_KEY],
   );
   useEffect(
-    () =>
-      localStorage.setItem(HINTS_USED_KEY, JSON.stringify(hintsUsedInRound)),
+    () => secureStorage.setItem(HINTS_USED_KEY, hintsUsedInRound),
     [hintsUsedInRound, HINTS_USED_KEY],
   );
   useEffect(
-    () => localStorage.setItem(HINT_HISTORY_KEY, JSON.stringify(hintHistory)),
+    () => secureStorage.setItem(HINT_HISTORY_KEY, hintHistory),
     [hintHistory, HINT_HISTORY_KEY],
   );
   useEffect(
-    () => localStorage.setItem(HEARTS_KEY, hearts.toString()),
+    () => secureStorage.setItem(HEARTS_KEY, hearts),
     [hearts, HEARTS_KEY],
   );
   useEffect(
-    () => localStorage.setItem(STREAK_KEY, streak.toString()),
+    () => secureStorage.setItem(STREAK_KEY, streak),
     [streak, STREAK_KEY],
   );
   useEffect(
-    () => localStorage.setItem(GAMES_PLAYED_KEY, gamesPlayed.toString()),
+    () => secureStorage.setItem(GAMES_PLAYED_KEY, gamesPlayed),
     [gamesPlayed, GAMES_PLAYED_KEY],
   );
 
   useEffect(() => {
-    if (lastReward)
-      localStorage.setItem(LAST_REWARD_KEY, JSON.stringify(lastReward));
-    else localStorage.removeItem(LAST_REWARD_KEY);
+    if (lastReward) secureStorage.setItem(LAST_REWARD_KEY, lastReward);
+    else secureStorage.removeItem(LAST_REWARD_KEY);
   }, [lastReward, LAST_REWARD_KEY]);
 
   const resetRoundInfo = () => {
@@ -116,7 +115,7 @@ export default function useSurvivalProgress(mode) {
   };
 
   const resetAllProgress = () => {
-    // 1. Remove ALL relevant keys
+    // 1. Remove ALL relevant keys using secureStorage
     const keysToRemove = [
       STREAK_KEY,
       HEARTS_KEY,
@@ -127,15 +126,14 @@ export default function useSurvivalProgress(mode) {
       LAST_REWARD_KEY,
       GAMES_PLAYED_KEY,
     ];
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
+    keysToRemove.forEach((key) => secureStorage.removeItem(key));
 
     // 2. Reset States to Default
     setStreak(0);
     setHearts(3);
     setCurrency(2500);
-    setGamesPlayed(0); // Next game init will make it 1
+    setGamesPlayed(0);
 
-    // [FIX] Ensure we use a fresh deep copy of defaults
     setHintsArray(JSON.parse(JSON.stringify(DEFAULT_HINTS)));
     setHintHistory([]);
     setHintsUsedInRound({});

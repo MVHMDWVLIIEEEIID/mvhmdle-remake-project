@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import data from "../data/words.json";
+import { secureStorage } from "../utils/secureStorage"; // [NEW] Import
 
 export default function useSurvivalGame(mode) {
   const LETTERS_KEY = `wordle-letters-${mode}`;
@@ -7,7 +8,7 @@ export default function useSurvivalGame(mode) {
   const TILES_GUESSES_KEY = `${mode}-guesses`;
   const TILES_TURN_KEY = `${mode}-turn`;
   const DATE_KEY = `${mode}-date`;
-  const MAX_TURNS_KEY = `${mode}-max-turns`; // [NEW] Key
+  const MAX_TURNS_KEY = `${mode}-max-turns`;
   const today = new Date().toDateString();
 
   const getInitialLetters = () => ({
@@ -46,45 +47,41 @@ export default function useSurvivalGame(mode) {
     return Math.floor(Math.random() * solutionWords.length);
   }
 
-  // [NEW] Max Turns State
+  // [UPDATED] Max Turns State - uses secureStorage
   const [maxTurns, setMaxTurns] = useState(() => {
-    const savedMax = localStorage.getItem(MAX_TURNS_KEY);
-    return savedMax ? parseInt(savedMax) : 6;
+    return secureStorage.getItem(MAX_TURNS_KEY, 6);
   });
 
+  // [UPDATED] Random Index - uses secureStorage
   const [random, setRandom] = useState(() => {
-    const savedIndex = localStorage.getItem(INDEX_KEY);
-    return savedIndex ? parseInt(savedIndex) : getRandom();
+    return secureStorage.getItem(INDEX_KEY, getRandom());
   });
   const targetWord = solutionWords[random];
 
+  // [UPDATED] Guesses - uses secureStorage
   const [guesses, setGuesses] = useState(() => {
-    const savedDate = localStorage.getItem(DATE_KEY);
-    const savedGuesses = localStorage.getItem(TILES_GUESSES_KEY);
-    return savedDate === today && savedGuesses ? JSON.parse(savedGuesses) : [];
+    const savedDate = secureStorage.getItem(DATE_KEY, null);
+    const savedGuesses = secureStorage.getItem(TILES_GUESSES_KEY, null);
+    return savedDate === today && savedGuesses ? savedGuesses : [];
   });
 
+  // [UPDATED] Turn - uses secureStorage
   const [turn, setTurn] = useState(() => {
-    const savedDate = localStorage.getItem(DATE_KEY);
-    const savedTurn = localStorage.getItem(TILES_TURN_KEY);
-    return savedDate === today && savedTurn ? parseInt(savedTurn) : 0;
+    const savedDate = secureStorage.getItem(DATE_KEY, null);
+    const savedTurn = secureStorage.getItem(TILES_TURN_KEY, null);
+    return savedDate === today && savedTurn ? savedTurn : 0;
   });
 
   const [gameState, setGameState] = useState(() => {
     const lastGuess = guesses[guesses.length - 1];
     if (lastGuess === targetWord?.toLowerCase()) return "won";
-    if (turn >= maxTurns) return "lost"; // [UPDATED]
+    if (turn >= maxTurns) return "lost";
     return "playing";
   });
 
+  // [UPDATED] Letters - uses secureStorage
   const [letters, setLetters] = useState(() => {
-    const savedLetters = localStorage.getItem(LETTERS_KEY);
-    try {
-      return savedLetters ? JSON.parse(savedLetters) : getInitialLetters();
-    } catch (e) {
-      console.log(e);
-      return getInitialLetters();
-    }
+    return secureStorage.getItem(LETTERS_KEY, getInitialLetters());
   });
 
   const [lastChanged, setLastChanged] = useState({
@@ -92,20 +89,20 @@ export default function useSurvivalGame(mode) {
     timestamp: 0,
   });
 
-  // Persistence
+  // Persistence with Encryption
   useEffect(() => {
-    localStorage.setItem(MAX_TURNS_KEY, maxTurns.toString());
+    secureStorage.setItem(MAX_TURNS_KEY, maxTurns);
   }, [maxTurns, MAX_TURNS_KEY]);
 
   useEffect(() => {
-    localStorage.setItem(LETTERS_KEY, JSON.stringify(letters));
-    localStorage.setItem(INDEX_KEY, random.toString());
+    secureStorage.setItem(LETTERS_KEY, letters);
+    secureStorage.setItem(INDEX_KEY, random);
   }, [letters, random, LETTERS_KEY, INDEX_KEY]);
 
   useEffect(() => {
-    localStorage.setItem(TILES_GUESSES_KEY, JSON.stringify(guesses));
-    localStorage.setItem(TILES_TURN_KEY, turn.toString());
-    localStorage.setItem(DATE_KEY, today);
+    secureStorage.setItem(TILES_GUESSES_KEY, guesses);
+    secureStorage.setItem(TILES_TURN_KEY, turn);
+    secureStorage.setItem(DATE_KEY, today);
   }, [guesses, turn, today, TILES_GUESSES_KEY, TILES_TURN_KEY, DATE_KEY]);
 
   const changeColor = (newColor, letterKey) => {
@@ -173,7 +170,6 @@ export default function useSurvivalGame(mode) {
       const newTurn = turn + 1;
       setTurn(newTurn);
       if (newTurn >= maxTurns) {
-        // [UPDATED]
         setGameState("lost");
         onGameOver("lost", maxTurns);
       }
@@ -186,11 +182,12 @@ export default function useSurvivalGame(mode) {
   };
 
   const resetGame = () => {
-    localStorage.removeItem(INDEX_KEY);
-    localStorage.removeItem(LETTERS_KEY);
-    localStorage.removeItem(TILES_GUESSES_KEY);
-    localStorage.removeItem(TILES_TURN_KEY);
-    localStorage.removeItem(MAX_TURNS_KEY);
+    // [UPDATED] Use secureStorage.removeItem
+    secureStorage.removeItem(INDEX_KEY);
+    secureStorage.removeItem(LETTERS_KEY);
+    secureStorage.removeItem(TILES_GUESSES_KEY);
+    secureStorage.removeItem(TILES_TURN_KEY);
+    secureStorage.removeItem(MAX_TURNS_KEY);
 
     const newIndex = getRandom();
     setRandom(newIndex);
@@ -199,7 +196,6 @@ export default function useSurvivalGame(mode) {
     setGuesses([]);
     setTurn(0);
 
-    // [CRITICAL] Reset maxTurns state, otherwise it stays high
     setMaxTurns(6);
 
     setGameState("playing");
@@ -219,7 +215,7 @@ export default function useSurvivalGame(mode) {
     targetWord,
     guesses,
     turn,
-    maxTurns, // [NEW]
+    maxTurns,
     gameState,
     letters,
     lastChanged,
@@ -227,6 +223,6 @@ export default function useSurvivalGame(mode) {
     submitGuess,
     resetGame,
     undoLastGuess,
-    addExtraRow, // [NEW]
+    addExtraRow,
   };
 }
