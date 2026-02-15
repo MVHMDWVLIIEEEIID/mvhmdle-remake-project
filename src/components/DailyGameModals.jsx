@@ -237,7 +237,7 @@ export default function DailyGameModals({ isOpen, onClose, onShare, stats }) {
         <div className="flex gap-4 w-full">
           <button
             onClick={onShare}
-            className="w-full bg-gameBlue text-gameDark font-black py-4 rounded-2xl hover:scale-105 active:scale-95 transition-all uppercase text-sm"
+            className="w-full bg-gameGreen text-gameDark font-black py-4 rounded-2xl hover:scale-105 active:scale-95 transition-all uppercase text-sm"
           >
             Share Result
           </button>

@@ -2,12 +2,14 @@ import React from "react";
 
 export default function Shop({
   currency,
+  hearts = 0,
   hintsArray,
   onBuyHint,
   hintsUsedInRound = {},
   gameState,
   isModalOpen,
 }) {
+  const MAX_HEARTS = 5;
   return (
     <div className="h-72 w-full text-gameLight rounded-lg flex flex-col bg-[#0a0a0a] border-2 border-gameLight shadow-[0_0_15px_rgba(0,0,0,0.5)] overflow-hidden font-sans">
       <header className="h-12 flex-none bg-gameLight px-4 flex justify-between items-center border-b-2 border-gameLight/30">
@@ -49,13 +51,14 @@ export default function Shop({
           let isLocked = false;
           if (name === "Hide a Letter") {
             isLocked = usedCount >= 5;
+          } else if (name === "Heart") {
+            isLocked = usedCount >= 1 || hearts >= MAX_HEARTS;
           } else if (
             [
               "Green Letter",
               "Yellow Letter",
               "Vowel Letter",
               "Row",
-              "Heart",
             ].includes(name)
           ) {
             isLocked = usedCount >= 1;

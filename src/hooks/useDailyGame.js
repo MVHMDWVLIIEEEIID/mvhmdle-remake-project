@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import data from "../data/words.json";
 import { secureStorage } from "../utils/secureStorage"; // [NEW] Import
 
@@ -43,7 +43,9 @@ export default function useDailyGame(mode = "daily") {
   const STREAK_KEY = `wordle-daily-streak-${mode}`;
 
   // Date Logic
-  const todayString = useMemo(() => new Date().toDateString(), []);
+  const [todayString, setTodayString] = useState(() =>
+    new Date().toDateString(),
+  );
 
   // --- Word Selection Logic ---
   const solutionWords = data.slice(0, 2314);
@@ -115,6 +117,64 @@ export default function useDailyGame(mode = "daily") {
     timestamp: 0,
   });
 
+  // Auto-roll to the next daily game at midnight while the page is open.
+  useEffect(() => {
+    let timerId;
+
+    const scheduleNextDay = () => {
+      const now = new Date();
+      const nextMidnight = new Date(now);
+      nextMidnight.setDate(now.getDate() + 1);
+      nextMidnight.setHours(0, 0, 0, 0);
+
+      timerId = setTimeout(() => {
+        const nextDay = new Date().toDateString();
+        setTodayString((prev) => (prev === nextDay ? prev : nextDay));
+        scheduleNextDay();
+      }, nextMidnight.getTime() - now.getTime() + 50);
+    };
+
+    scheduleNextDay();
+    return () => clearTimeout(timerId);
+  }, []);
+
+  // Rehydrate/reset state whenever the day changes.
+  useEffect(() => {
+    const savedDate = secureStorage.getItem(LAST_PLAYED_KEY, null);
+    const savedStreak = secureStorage.getItem(STREAK_KEY, 0);
+
+    if (savedDate === todayString) {
+      setGuesses(secureStorage.getItem(GUESSES_KEY, []));
+      setGameState(secureStorage.getItem(GAME_STATE_KEY, "playing"));
+      setLetters(secureStorage.getItem(LETTERS_KEY, getInitialLetters()));
+      setStreak(savedStreak);
+      return;
+    }
+
+    setGuesses([]);
+    setGameState("playing");
+    setLetters(getInitialLetters());
+
+    if (!savedDate) return;
+
+    const lastDate = new Date(savedDate);
+    const currentToday = new Date(todayString);
+    lastDate.setHours(0, 0, 0, 0);
+    currentToday.setHours(0, 0, 0, 0);
+
+    const dayDiff = Math.floor((currentToday - lastDate) / (1000 * 60 * 60 * 24));
+    if (dayDiff > 1) {
+      setStreak(0);
+    }
+  }, [
+    todayString,
+    LAST_PLAYED_KEY,
+    STREAK_KEY,
+    GUESSES_KEY,
+    GAME_STATE_KEY,
+    LETTERS_KEY,
+  ]);
+
   // [NEW] Console log for target word
   useEffect(() => {
     console.log(`[DAILY MODE] Target Word: ${targetWord?.toUpperCase()}`);
@@ -123,7 +183,6 @@ export default function useDailyGame(mode = "daily") {
   // --- Persistence with Encryption ---
   useEffect(() => {
     // [UPDATED] Replace localStorage.setItem with secureStorage.setItem
-    secureStorage.setItem(LAST_PLAYED_KEY, todayString);
     secureStorage.setItem(GUESSES_KEY, guesses);
     secureStorage.setItem(LETTERS_KEY, letters);
     secureStorage.setItem(GAME_STATE_KEY, gameState);
@@ -133,8 +192,6 @@ export default function useDailyGame(mode = "daily") {
     letters,
     gameState,
     streak,
-    todayString,
-    LAST_PLAYED_KEY,
     GUESSES_KEY,
     LETTERS_KEY,
     GAME_STATE_KEY,
@@ -193,6 +250,9 @@ export default function useDailyGame(mode = "daily") {
   const submitGuess = (guess, onGameOverCallback) => {
     if (gameState !== "playing") return false;
 
+    // Mark the day as played only when the user actually makes a guess.
+    secureStorage.setItem(LAST_PLAYED_KEY, todayString);
+
     const newGuesses = [...guesses, guess];
     setGuesses(newGuesses);
 
@@ -215,6 +275,7 @@ export default function useDailyGame(mode = "daily") {
 
   return {
     targetWord,
+    todayString,
     guesses,
     turn: gameState === "won" ? guesses.length - 1 : guesses.length,
     gameState,

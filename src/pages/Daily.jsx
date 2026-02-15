@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import Header from "../components/Header";
 import Keyboard from "../components/Keyboard";
 import Tiles from "../components/Tiles";
@@ -8,6 +9,7 @@ import Toast from "../components/Toast";
 import confetti from "canvas-confetti"; // Import confetti
 
 export default function Daily({ mode = "daily" }) {
+  const navigate = useNavigate();
   // 1. Call the hook FIRST
   const game = useDailyGame(mode);
 
@@ -19,6 +21,12 @@ export default function Daily({ mode = "daily" }) {
   });
 
   const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    if (game.gameState === "playing") {
+      setIsModalOpen([false, "playing"]);
+    }
+  }, [game.gameState, game.todayString]);
 
   const addToast = (msg, type = "info") => {
     const id = Date.now() + Math.random();
@@ -137,6 +145,7 @@ export default function Daily({ mode = "daily" }) {
       <div className="flex-1 center flex-col">
         <Header
           mode="DAILY CHALLENGE"
+          onModeClick={() => navigate("/")}
           streak={game.streak > 3 ? `${game.streak} 🔥` : game.streak}
         />
       </div>

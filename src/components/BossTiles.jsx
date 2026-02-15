@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import data from "../data/words.json";
 
 export default function BossTiles({
@@ -15,7 +15,12 @@ export default function BossTiles({
   const [solutions] = useState(targetWords.map((w) => w?.toLowerCase()));
   const [shake, setShake] = useState(false);
   const [lastSubmittedTurn, setLastSubmittedTurn] = useState(-1);
-  
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    isSubmittingRef.current = false;
+  }, [turn, gameState, guesses.length]);
+
   // For 2-word mode: track which word is active
   // For 4-word mode: apply guess to all words at once
   const isFourWordMode = solutions.length === 4;
@@ -64,6 +69,7 @@ export default function BossTiles({
       const key = e.key;
 
       if (key === "Enter") {
+        if (isSubmittingRef.current) return;
         if (gameState !== "playing" || turn >= rowCount) {
           if (gameState === "won") onGameOver("won-already");
           else onGameOver("lost-already");
@@ -88,7 +94,7 @@ export default function BossTiles({
         if (isFourWordMode) {
           // Check if all 4 words are already solved
           const allSolved = solutions.every((solution, idx) =>
-            guesses.some((g) => g.word === solution && g.wordIndex === idx)
+            guesses.some((g) => g.word === solution && g.wordIndex === idx),
           );
           if (allSolved) {
             triggerShake();
@@ -97,21 +103,27 @@ export default function BossTiles({
           }
 
           // Check if already guessed for any word
-          if (guesses.some((g) => g.word === guessToSubmit && turn === g.rowNumber)) {
+          if (
+            guesses.some(
+              (g) => g.word === guessToSubmit && turn === g.rowNumber,
+            )
+          ) {
             triggerShake();
-            if (addToast) addToast("Already guessed this word for this row!", "error");
+            if (addToast)
+              addToast("Already guessed this word for this row!", "error");
             return;
           }
-          
+
           // Submit to all 4 words at once with single call
           if (onGuessSubmit(guessToSubmit)) {
+            isSubmittingRef.current = true;
             setLastSubmittedTurn(turn);
             setCurrentGuess("");
           }
         } else {
           // For 2-word mode: check if both words are already solved
           const allSolved = solutions.every((solution, idx) =>
-            guesses.some((g) => g.word === solution && g.wordIndex === idx)
+            guesses.some((g) => g.word === solution && g.wordIndex === idx),
           );
           if (allSolved) {
             triggerShake();
@@ -121,6 +133,7 @@ export default function BossTiles({
 
           // Submit once and it applies to both words
           if (onGuessSubmit(guessToSubmit, 0)) {
+            isSubmittingRef.current = true;
             setLastSubmittedTurn(turn);
             setCurrentGuess("");
           }
@@ -170,7 +183,10 @@ export default function BossTiles({
     // Determine if this word is solved
     const isSolved = guessesForWord.some((g) => g.word === solution);
     // Last guess row is the max rowNumber for this word, or -1
-    const lastGuessRow = guessesForWord.length > 0 ? Math.max(...guessesForWord.map((g) => g.rowNumber)) : -1;
+    const lastGuessRow =
+      guessesForWord.length > 0
+        ? Math.max(...guessesForWord.map((g) => g.rowNumber))
+        : -1;
 
     const items = [];
 
@@ -185,6 +201,7 @@ export default function BossTiles({
 
       // Check if this row has a guess for this word (by row index)
       const rowGuess = guessByRow[i];
+      const isCorrectRow = guessByRow[i]?.word === solution;
       const rowHasGuess = Boolean(rowGuess);
       const shouldFlip = i === lastSubmittedTurn && rowHasGuess;
 
@@ -212,28 +229,32 @@ export default function BossTiles({
           else colorClass = "bg-gameGrey border-gameGrey text-gameDark";
         }
 
-            // Size adjustments: shrink tiles a bit in 4-word mode so columns fit
-            // Slightly larger tiles for better readability
-            const tileWidthClass = isFourWordMode ? "w-10" : "w-12";
-            const tileHeight = isCurrentRow
-              ? isFourWordMode
-                ? "h-10"
-                : "h-12"
-              : isFourWordMode
-              ? "h-[1.5rem]"
-              : "h-[1.8rem]";
-            const fontSize = isCurrentRow ? (isFourWordMode ? "text-2xl" : "text-3xl") : "text-base";
-            // Decrease spacing to match normal `Tiles` component; shrink to 1px
-            const tileMargin = "m-[1px]";
+        // Size adjustments: shrink tiles a bit in 4-word mode so columns fit
+        // Slightly larger tiles for better readability
+        const tileWidthClass = isFourWordMode ? "w-10" : "w-12";
+        const tileHeight = isCurrentRow
+          ? isFourWordMode
+            ? "h-10"
+            : "h-11"
+          : isFourWordMode
+            ? "h-7"
+            : "h-10";
+        const fontSize = isCurrentRow
+          ? isFourWordMode
+            ? "text-2xl"
+            : "text-[26px]"
+          : "text-[22px]";
+        // Decrease spacing to match normal `Tiles` component; shrink to 1px
+        const tileMargin = "m-[1.5px]";
 
         items.push({
           wordIdx,
           key: `${wordIdx}-${i}-${j}`,
-            className: `
-              text-center ${tileWidthClass} ${tileHeight} ${tileMargin} ${fontSize} text-gameDark pointer-events-none font-bold uppercase border-2 transition-all outline-none rounded
-              ${isCurrentRow || (isPrevRow && rowHasGuess) ? "opacity-100" : "opacity-60"}
+          className: `
+              text-center ${tileWidthClass} ${tileHeight} ${tileMargin} ${fontSize} text-gameDark pointer-events-none font-bold uppercase border-2 transition-all outline-none rounded aspect-square
+              ${isCurrentRow || isCorrectRow ? "opacity-100" : "opacity-60"}
               ${shouldFlip ? "animate-flip" : ""}
-              ${isNextTile ? "border-gameGreen scale-105" : "border-transparent"}
+              ${isNextTile ? "border-gameGreen!" : "border-transparent!"}
               ${shake && isCurrentRow ? "animate-shake border-red-500!" : ""}
               ${colorClass}
             `,
@@ -256,8 +277,8 @@ export default function BossTiles({
   const containerClass = isFourWordMode
     ? "flex flex-row gap-4 w-fit"
     : isTwoWordMode
-    ? "flex flex-row gap-20 w-fit mx-auto"
-    : "flex flex-row gap-20 w-fit mx-auto";
+      ? "flex flex-row gap-20 w-fit mx-auto"
+      : "flex flex-row gap-20 w-fit mx-auto";
 
   return (
     <div className={containerClass}>
@@ -268,7 +289,9 @@ export default function BossTiles({
 
         return (
           <div key={wordIdx} className="flex flex-col items-center m-0 p-0">
-            <div className={`grid grid-cols-5 ${isFourWordMode ? 'gap-[1px]' : isTwoWordMode ? 'gap-1' : 'gap-x-1 gap-y-0.5'} w-fit`}>
+            <div
+              className={`grid grid-cols-5 ${isFourWordMode ? "gap-px" : isTwoWordMode ? "gap-1" : "gap-x-1 gap-y-0.5"} w-fit`}
+            >
               {wordGrids[wordIdx].map((item) => (
                 <input
                   key={item.key}
@@ -281,8 +304,8 @@ export default function BossTiles({
             </div>
             {/* Show Done indicator for solved words */}
             {isSolved && (
-              <div className="mt-2 px-4 py-1 bg-gameGreen text-gameDark font-bold rounded text-sm">
-                Done
+              <div className="mt-2 px-4 py-1 text-gameGreen/50 font-bold rounded text-sm w-full border center">
+                Word Defeated
               </div>
             )}
           </div>

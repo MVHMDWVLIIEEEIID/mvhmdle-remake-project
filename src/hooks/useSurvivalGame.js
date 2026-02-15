@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import data from "../data/words.json";
 import { secureStorage } from "../utils/secureStorage"; // [NEW] Import
 
@@ -6,6 +6,7 @@ export default function useSurvivalGame(mode) {
   const LETTERS_KEY = `wordle-letters-${mode}`;
   const INDEX_KEY = `wordle-solution-index-${mode}`;
   const INDICES_KEY = `wordle-solution-indices-${mode}`;
+  const AVAILABLE_INDICES_KEY = `wordle-available-solution-indices-${mode}`;
   const TILES_GUESSES_KEY = `${mode}-guesses`;
   const TILES_TURN_KEY = `${mode}-turn`;
   const DATE_KEY = `${mode}-date`;
@@ -46,10 +47,28 @@ export default function useSurvivalGame(mode) {
     back: { color: " bg-gameLight ", row: 3, big: true },
   });
 
-  const solutionWords = data.slice(0, 2314);
-  const getRandom = useCallback(() => {
-    return Math.floor(Math.random() * solutionWords.length);
+  const SOLUTION_WORD_COUNT = 2315;
+  const solutionWords = useMemo(() => data.slice(0, SOLUTION_WORD_COUNT), []);
+  const getAllSolutionIndices = useCallback(() => {
+    return Array.from({ length: solutionWords.length }, (_, idx) => idx);
   }, [solutionWords.length]);
+
+  const getRandomFromPool = useCallback((pool) => {
+    if (!Array.isArray(pool) || pool.length === 0) return null;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }, []);
+
+  const pickDistinctIndices = useCallback((count, pool = []) => {
+    const picked = [];
+    const primary = [...pool];
+
+    while (picked.length < count && primary.length > 0) {
+      const at = Math.floor(Math.random() * primary.length);
+      picked.push(primary.splice(at, 1)[0]);
+    }
+
+    return picked;
+  }, []);
 
   // [NEW] Determine game type and word count
   const getGameTypeInfo = (gameCount) => {
@@ -78,6 +97,20 @@ export default function useSurvivalGame(mode) {
     return secureStorage.getItem(GAME_COUNT_KEY, 0);
   });
 
+  const [availableSolutionIndices, setAvailableSolutionIndices] = useState(
+    () => {
+      const saved = secureStorage.getItem(AVAILABLE_INDICES_KEY, null);
+      if (
+        Array.isArray(saved) &&
+        saved.every((idx) => Number.isInteger(idx) && idx >= 0) &&
+        saved.length <= solutionWords.length
+      ) {
+        return saved;
+      }
+      return getAllSolutionIndices();
+    },
+  );
+
   // [NEW] Game type info
   const gameTypeInfo = getGameTypeInfo(gameCount);
   const [isBossGame, setIsBossGame] = useState(() => {
@@ -98,7 +131,10 @@ export default function useSurvivalGame(mode) {
 
   // [UPDATED] Random Index(es) - uses secureStorage
   const [random, setRandom] = useState(() => {
-    return secureStorage.getItem(INDEX_KEY, getRandom());
+    return secureStorage.getItem(
+      INDEX_KEY,
+      getRandomFromPool(availableSolutionIndices),
+    );
   });
 
   // [NEW] Multiple indices for boss games
@@ -106,15 +142,18 @@ export default function useSurvivalGame(mode) {
     return secureStorage.getItem(INDICES_KEY, []);
   });
 
-  const getTargetWords = () => {
+  const targetWords = useMemo(() => {
     if (isBossGame && bossWordCount > 1) {
       return randomIndices.map((idx) => solutionWords[idx]);
     }
+    if (random === null || random === undefined) return [];
     return [solutionWords[random]];
-  };
-
-  const targetWords = getTargetWords();
+  }, [isBossGame, bossWordCount, randomIndices, random, solutionWords]);
   const targetWord = targetWords[0];
+  const targetSignature = useMemo(
+    () => `${isBossGame ? "boss" : "normal"}:${targetWords.join("|")}`,
+    [isBossGame, targetWords],
+  );
 
   // [UPDATED] Guesses - now stores objects with wordIndex
   const [guesses, setGuesses] = useState(() => {
@@ -172,7 +211,7 @@ export default function useSurvivalGame(mode) {
     timestamp: 0,
   });
 
-  // [NEW] Console log for target words
+  // Log only when the actual target assignment changes.
   useEffect(() => {
     if (isBossGame && bossWordCount > 1) {
       console.log(
@@ -182,7 +221,11 @@ export default function useSurvivalGame(mode) {
     } else {
       console.log(`[SURVIVAL MODE] Target Word: ${targetWord?.toUpperCase()}`);
     }
-  }, [targetWords, targetWord, isBossGame, bossWordCount]);
+  }, [targetSignature, targetWord, targetWords, isBossGame, bossWordCount]);
+
+  useEffect(() => {
+    console.log(`[SURVIVAL MODE] Remaining Solutions: ${availableSolutionIndices.length}`);
+  }, [availableSolutionIndices.length]);
 
   // Persistence with Encryption
   useEffect(() => {
@@ -192,6 +235,10 @@ export default function useSurvivalGame(mode) {
   useEffect(() => {
     secureStorage.setItem(GAME_COUNT_KEY, gameCount);
   }, [gameCount, GAME_COUNT_KEY]);
+
+  useEffect(() => {
+    secureStorage.setItem(AVAILABLE_INDICES_KEY, availableSolutionIndices);
+  }, [availableSolutionIndices, AVAILABLE_INDICES_KEY]);
 
   useEffect(() => {
     secureStorage.setItem(IS_BOSS_GAME_KEY, isBossGame);
@@ -224,13 +271,27 @@ export default function useSurvivalGame(mode) {
   // Initialize randomIndices for boss games if they're missing
   useEffect(() => {
     if (isBossGame && bossWordCount > 1 && randomIndices.length === 0) {
-      const newIndices = [];
-      for (let i = 0; i < bossWordCount; i++) {
-        newIndices.push(getRandom());
-      }
+      const newIndices = pickDistinctIndices(
+        bossWordCount,
+        availableSolutionIndices,
+      );
       setRandomIndices(newIndices);
     }
-  }, [isBossGame, bossWordCount, randomIndices.length, getRandom]);
+  }, [
+    isBossGame,
+    bossWordCount,
+    randomIndices.length,
+    pickDistinctIndices,
+    availableSolutionIndices,
+  ]);
+
+  const removeSolvedTargetsFromPool = useCallback((indicesToRemove) => {
+    if (!Array.isArray(indicesToRemove) || indicesToRemove.length === 0) return;
+    const toRemove = new Set(indicesToRemove);
+    setAvailableSolutionIndices((prev) =>
+      prev.filter((idx) => !toRemove.has(idx)),
+    );
+  }, []);
 
   const changeColor = (newColor, letterKey) => {
     const key = letterKey.toLowerCase();
@@ -283,6 +344,8 @@ export default function useSurvivalGame(mode) {
 
   const submitGuess = (guess, _wordIndex, onGameOver) => {
     if (gameState !== "playing") return false;
+    if (!targetWord && (!Array.isArray(targetWords) || targetWords.length === 0))
+      return false;
 
     if (isBossGame && bossWordCount > 1) {
       // Boss game with multiple words
@@ -324,6 +387,18 @@ export default function useSurvivalGame(mode) {
             (g) => g.word === word?.toLowerCase() && g.wordIndex === idx,
           ),
         );
+
+        const newlySolved = [];
+        for (let i = 0; i < 4; i++) {
+          const wasSolvedBefore = guesses.some(
+            (g) =>
+              g.word === targetWords[i]?.toLowerCase() && g.wordIndex === i,
+          );
+          if (!wasSolvedBefore && guess === targetWords[i]?.toLowerCase()) {
+            newlySolved.push(randomIndices[i]);
+          }
+        }
+        removeSolvedTargetsFromPool(newlySolved);
 
         if (allWordsGuessed) {
           setGameState("won");
@@ -375,6 +450,18 @@ export default function useSurvivalGame(mode) {
           ),
         );
 
+        const newlySolved = [];
+        for (let i = 0; i < 2; i++) {
+          const wasSolvedBefore = guesses.some(
+            (g) =>
+              g.word === targetWords[i]?.toLowerCase() && g.wordIndex === i,
+          );
+          if (!wasSolvedBefore && guess === targetWords[i]?.toLowerCase()) {
+            newlySolved.push(randomIndices[i]);
+          }
+        }
+        removeSolvedTargetsFromPool(newlySolved);
+
         if (allWordsGuessed) {
           setGameState("won");
           onGameOver("won", newGuesses.length);
@@ -399,6 +486,7 @@ export default function useSurvivalGame(mode) {
       });
 
       if (guess === targetWord?.toLowerCase()) {
+        removeSolvedTargetsFromPool([random]);
         setGameState("won");
         onGameOver("won", newGuesses.length);
       } else {
@@ -428,6 +516,15 @@ export default function useSurvivalGame(mode) {
     secureStorage.removeItem(IS_BOSS_GAME_KEY);
     secureStorage.removeItem(BOSS_WORD_COUNT_KEY);
 
+    if (availableSolutionIndices.length === 0) {
+      setRandom(null);
+      setRandomIndices([]);
+      setGuesses([]);
+      setTurn(0);
+      setGameState("won");
+      return;
+    }
+
     // Increment game count
     const newGameCount = gameCount + 1;
     const newGameTypeInfo = getGameTypeInfo(newGameCount);
@@ -436,56 +533,117 @@ export default function useSurvivalGame(mode) {
     setIsBossGame(newGameTypeInfo.isBoss);
     setBossWordCount(newGameTypeInfo.wordCount);
 
-    if (newGameTypeInfo.isBoss && newGameTypeInfo.wordCount > 1) {
+    let nextIsBoss = newGameTypeInfo.isBoss;
+    let nextWordCount = newGameTypeInfo.wordCount;
+
+    if (
+      newGameTypeInfo.isBoss &&
+      newGameTypeInfo.wordCount > 1 &&
+      availableSolutionIndices.length >= newGameTypeInfo.wordCount
+    ) {
       // Generate multiple word indices for boss games
-      const newIndices = [];
-      for (let i = 0; i < newGameTypeInfo.wordCount; i++) {
-        newIndices.push(getRandom());
-      }
+      const newIndices = pickDistinctIndices(
+        newGameTypeInfo.wordCount,
+        availableSolutionIndices,
+      );
       setRandomIndices(newIndices);
     } else {
       // Normal game - single word
-      const newIndex = getRandom();
+      const newIndex = getRandomFromPool(availableSolutionIndices);
       setRandom(newIndex);
       setRandomIndices([]);
+      nextIsBoss = false;
+      nextWordCount = 1;
     }
+
+    setIsBossGame(nextIsBoss);
+    setBossWordCount(nextWordCount);
 
     setLetters(getInitialLetters());
     setLastChanged({ letter: null, timestamp: 0 });
     setGuesses([]);
     setTurn(0);
-    setMaxTurns(getMaxTurns(newGameTypeInfo.isBoss, newGameTypeInfo.wordCount));
+    setMaxTurns(getMaxTurns(nextIsBoss, nextWordCount));
     setGameState("playing");
   };
 
-  // Retry the current boss without advancing the game counter.
-  // Generates new target indices but keeps boss mode and bossWordCount the same.
-  const retryBoss = () => {
-    // Clear guesses/turn but keep isBossGame and bossWordCount
+  const resetAllGameData = () => {
+    // Remove all persisted survival run data.
+    [
+      LETTERS_KEY,
+      INDEX_KEY,
+      INDICES_KEY,
+      TILES_GUESSES_KEY,
+      TILES_TURN_KEY,
+      DATE_KEY,
+      MAX_TURNS_KEY,
+      GAME_COUNT_KEY,
+      IS_BOSS_GAME_KEY,
+      BOSS_WORD_COUNT_KEY,
+      GAME_STATE_KEY,
+      AVAILABLE_INDICES_KEY,
+    ].forEach((key) => secureStorage.removeItem(key));
+
+    const firstGameTypeInfo = getGameTypeInfo(0);
+    const freshPool = getAllSolutionIndices();
+    const firstIndex = getRandomFromPool(freshPool);
+
+    setGameCount(0);
+    setAvailableSolutionIndices(freshPool);
+    setIsBossGame(firstGameTypeInfo.isBoss);
+    setBossWordCount(firstGameTypeInfo.wordCount);
+    setRandom(firstIndex);
+    setRandomIndices([]);
+    setLetters(getInitialLetters());
+    setLastChanged({ letter: null, timestamp: 0 });
+    setGuesses([]);
+    setTurn(0);
+    setMaxTurns(
+      getMaxTurns(firstGameTypeInfo.isBoss, firstGameTypeInfo.wordCount),
+    );
+    setGameState("playing");
+  };
+
+  // Retry current level without advancing game counter.
+  // Keeps the same level number (gameCount) and game type.
+  const retryCurrentGame = () => {
+    // Clear guesses/turn but keep gameCount
     secureStorage.removeItem(INDICES_KEY);
+    secureStorage.removeItem(INDEX_KEY);
     secureStorage.removeItem(LETTERS_KEY);
     secureStorage.removeItem(TILES_GUESSES_KEY);
     secureStorage.removeItem(TILES_TURN_KEY);
 
-    // Generate new indices for the same bossWordCount
-    if (bossWordCount > 1) {
-      const newIndices = [];
-      for (let i = 0; i < bossWordCount; i++) {
-        newIndices.push(getRandom());
-      }
+    let nextIsBoss = isBossGame && bossWordCount > 1;
+    let nextWordCount = nextIsBoss ? bossWordCount : 1;
+
+    if (nextIsBoss && availableSolutionIndices.length >= bossWordCount) {
+      const newIndices = pickDistinctIndices(
+        bossWordCount,
+        availableSolutionIndices,
+      );
       setRandomIndices(newIndices);
     } else {
-      const newIndex = getRandom();
+      const newIndex = getRandomFromPool(availableSolutionIndices);
       setRandom(newIndex);
       setRandomIndices([]);
+      nextIsBoss = false;
+      nextWordCount = 1;
     }
 
+    setIsBossGame(nextIsBoss);
+    setBossWordCount(nextWordCount);
     setLetters(getInitialLetters());
     setLastChanged({ letter: null, timestamp: 0 });
     setGuesses([]);
     setTurn(0);
-    setMaxTurns(getMaxTurns(isBossGame, bossWordCount));
+    setMaxTurns(getMaxTurns(nextIsBoss, nextWordCount));
     setGameState("playing");
+  };
+
+  // Backward-compatible alias for boss retry flow
+  const retryBoss = () => {
+    retryCurrentGame();
   };
 
   const undoLastGuess = () => {
@@ -510,11 +668,14 @@ export default function useSurvivalGame(mode) {
     changeColor,
     submitGuess,
     resetGame,
+    resetAllGameData,
+    retryCurrentGame,
     retryBoss,
     undoLastGuess,
     addExtraRow,
     isBossGame,
     bossWordCount,
     gameCount,
+    availableSolutionCount: availableSolutionIndices.length,
   };
 }

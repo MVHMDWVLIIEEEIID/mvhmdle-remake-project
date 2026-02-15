@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import data from "../data/words.json";
 
 export default function Tiles({
@@ -15,6 +15,11 @@ export default function Tiles({
   const [solution] = useState(targetWord?.toLowerCase());
   const [shake, setShake] = useState(false);
   const [lastSubmittedTurn, setLastSubmittedTurn] = useState(-1);
+  const isSubmittingRef = useRef(false);
+
+  useEffect(() => {
+    isSubmittingRef.current = false;
+  }, [turn, gameState, guesses.length]);
 
   const triggerShake = () => {
     setShake(true);
@@ -56,6 +61,7 @@ export default function Tiles({
       const key = e.key;
 
       if (key === "Enter") {
+        if (isSubmittingRef.current) return;
         // [UPDATED] Use rowCount instead of hardcoded 6
         if (gameState !== "playing" || turn >= rowCount) {
           if (gameState === "won") onGameOver("won-already");
@@ -82,6 +88,7 @@ export default function Tiles({
         }
 
         if (onGuessSubmit && onGuessSubmit(guessToSubmit)) {
+          isSubmittingRef.current = true;
           setLastSubmittedTurn(turn);
           setCurrentGuess("");
         }
@@ -156,7 +163,7 @@ export default function Tiles({
               text-center aspect-square w-11 m-0.5 text-gameDark pointer-events-none text-2xl font-bold uppercase border-2 transition-all outline-none rounded
               ${isCurrentRow || (gameState === "won" && i === turn) ? "opacity-100" : "opacity-60"}
               ${shouldFlip ? "animate-flip" : ""}
-              ${isNextTile ? "border-gameGreen scale-105" : "border-transparent"}
+              ${isNextTile ? "border-gameGreen!" : "border-transparent"}
               ${shake && isCurrentRow ? "animate-shake border-red-500!" : ""}
               ${colorClass}
             `}

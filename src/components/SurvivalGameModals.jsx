@@ -154,9 +154,18 @@ export default function SurvivalGameModals({
   onFullReset,
   stats,
 }) {
+  const MAX_HEARTS = 5;
   const [showModal, modalType] = isOpen;
   const defsRef = useRef([]);
   const [expandedDefs, setExpandedDefs] = useState([]);
+  const renderBossWordsInline = (words = []) =>
+    words.map((w, i) => (
+      <span key={i} className="inline-block">
+        {i !== 0 ? ` , ` : ""}
+        {w}
+        {i === words.length - 1 ? `.` : ""}
+      </span>
+    ));
 
   useEffect(() => {
     const handler = (e) => {
@@ -248,15 +257,9 @@ export default function SurvivalGameModals({
               {stats.isBossGame ? (
                 <div className="w-full">
                   <div
-                    className={`${stats.bossWordCount === 2 ? "text-2xl" : "text-xl"} font-black text-white uppercase tracking-wider drop-shadow-[0_0_15px_rgba(74,222,128,0.25)] text-center mb-3`}
+                    className={`text-[22px] font-black text-white uppercase tracking-wider drop-shadow-[0_0_15px_rgba(74,222,128,0.25)] text-center mb-3`}
                   >
-                    [
-                    {stats.targetWords.map((w, i) => (
-                      <span key={i} className="inline-block">
-                        "{w}"{i < stats.targetWords.length - 1 ? ", " : ""}
-                      </span>
-                    ))}
-                    ]
+                    {renderBossWordsInline(stats.targetWords)}
                   </div>
 
                   {/* per-word definition buttons removed by request */}
@@ -328,15 +331,30 @@ export default function SurvivalGameModals({
               </div>
             </div>
             {stats.isBossGame ? (
-              <div className="w-full max-h-35 overflow-y-auto mt-4 space-y-4 hide-scrollbar">
-                {stats.targetWords.map((word, idx) => (
-                  <div key={idx} ref={(el) => (defsRef.current[idx] = el)}>
-                    <DefinitionSection
-                      word={word}
-                      open={expandedDefs.includes(idx)}
-                    />
+              <div className="w-full mt-4">
+                {stats.bossWordCount === 4 && (
+                  <div className="w-full flex justify-center">
+                    {stats?.lastReward?.breakdown?.heartAdded ? (
+                      <p className="text-gameRed text-[11px] font-black uppercase tracking-wider">
+                        +1 Heart Added
+                      </p>
+                    ) : (
+                      <p className="text-gameRed text-[11px] font-black uppercase tracking-wider">
+                        +$50,000 Hearts Full Bonus
+                      </p>
+                    )}
                   </div>
-                ))}
+                )}
+                <div className="max-h-28 overflow-y-auto space-y-4 hide-scrollbar">
+                  {stats.targetWords.map((word, idx) => (
+                    <div key={idx} ref={(el) => (defsRef.current[idx] = el)}>
+                      <DefinitionSection
+                        word={word}
+                        open={expandedDefs.includes(idx)}
+                      />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <DefinitionSection word={stats.targetWord} />
@@ -356,15 +374,8 @@ export default function SurvivalGameModals({
               {stats.isBossGame ? `Boss Attempt Failed:` : `The Word Was:`}
             </p>
             {stats.isBossGame ? (
-              <div className="flex flex-col gap-2 w-full">
-                {stats.targetWords.map((word, idx) => (
-                  <p
-                    key={idx}
-                    className="text-3xl font-black text-gameLight uppercase text-center"
-                  >
-                    "{word}"
-                  </p>
-                ))}
+              <div className="text-3xl font-black text-gameLight uppercase text-center">
+                {renderBossWordsInline(stats.targetWords)}
               </div>
             ) : (
               <p className="text-4xl font-black text-gameLight uppercase">
@@ -385,18 +396,20 @@ export default function SurvivalGameModals({
                   </svg>
                 </span>
               ))}
-              {[...Array(3 - stats.hearts)].map((_, i) => (
-                <span key={i} className="text-3xl grayscale opacity-30">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    className="h-8 w-8 text-gameLight/50"
-                  >
-                    <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-                  </svg>
-                </span>
-              ))}
+              {[...Array(Math.max(0, MAX_HEARTS - (stats?.hearts || 0)))].map(
+                (_, i) => (
+                  <span key={i} className="text-3xl grayscale opacity-30">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      className="h-8 w-8 text-gameLight/50"
+                    >
+                      <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+                    </svg>
+                  </span>
+                ),
+              )}
             </div>
             {!stats.isBossGame && <DefinitionSection word={stats.targetWord} />}
           </div>
@@ -431,15 +444,8 @@ export default function SurvivalGameModals({
                 {stats.isBossGame ? `Boss:` : `The word was`}
               </p>
               {stats.isBossGame ? (
-                <div className="flex flex-col gap-2 w-full">
-                  {stats.targetWords.map((word, idx) => (
-                    <p
-                      key={idx}
-                      className="text-3xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)] text-center"
-                    >
-                      "{word}"
-                    </p>
-                  ))}
+                <div className="text-3xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)] text-center">
+                  {renderBossWordsInline(stats.targetWords)}
                 </div>
               ) : (
                 <p className="text-4xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)]">

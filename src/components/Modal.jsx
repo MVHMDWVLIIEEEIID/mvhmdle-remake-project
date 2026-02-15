@@ -16,6 +16,7 @@ export default function Modal({
 
     const handleKeyDown = (e) => {
       if (e.key === "Enter") {
+        if (e.repeat) return;
         e.preventDefault();
         e.stopPropagation();
         if (onNext) onNext();
@@ -99,7 +100,7 @@ export default function Modal({
           <div className="flex gap-4">
             <button
               onClick={onShare}
-              className="w-full bg-gameBlue text-gameDark font-black py-4 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-lg uppercase text-sm tracking-widest"
+              className="w-full bg-gameDark border-2 border-gameGreen text-gameGreen font-black py-4 rounded-2xl transition-all hover:scale-105 active:scale-95 shadow-lg uppercase text-sm tracking-widest"
             >
               Share
             </button>

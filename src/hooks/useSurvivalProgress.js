@@ -11,7 +11,17 @@ const DEFAULT_HINTS = {
   "Beat The Game": { cost: 999999, bought: 0, desc: "Instant Extraction." },
 };
 
+const DEFAULT_RUN_STATS = {
+  wins: 0,
+  losses: 0,
+  wordsGuessed: 0,
+  wordsTyped: 0,
+  highestStreak: 0,
+  highestCash: 2500,
+};
+
 export default function useSurvivalProgress(mode) {
+  const MAX_HEARTS = 5;
   // Keys
   const STREAK_KEY = `wordle-streak-${mode}`;
   const HEARTS_KEY = `wordle-hearts-${mode}`;
@@ -23,6 +33,8 @@ export default function useSurvivalProgress(mode) {
   const GAMES_PLAYED_KEY = `wordle-games-played-${mode}`;
   const BOSS2_COUNT_KEY = `wordle-boss2-count-${mode}`;
   const BOSS4_COUNT_KEY = `wordle-boss4-count-${mode}`;
+  const RUN_STATS_KEY = `wordle-run-stats-${mode}`;
+  const RUN_COMPLETED_KEY = `wordle-run-completed-${mode}`;
 
   // State Initializers with Encryption
   const [currency, setCurrency] = useState(() => {
@@ -58,7 +70,8 @@ export default function useSurvivalProgress(mode) {
 
   const [hearts, setHearts] = useState(() => {
     // [UPDATED]
-    return secureStorage.getItem(HEARTS_KEY, 3);
+    const saved = secureStorage.getItem(HEARTS_KEY, 3);
+    return Math.max(0, Math.min(MAX_HEARTS, saved));
   });
 
   const [streak, setStreak] = useState(() => {
@@ -82,6 +95,15 @@ export default function useSurvivalProgress(mode) {
   const [gamesPlayed, setGamesPlayed] = useState(() => {
     // [UPDATED]
     return secureStorage.getItem(GAMES_PLAYED_KEY, 1);
+  });
+
+  const [runStats, setRunStats] = useState(() => {
+    const saved = secureStorage.getItem(RUN_STATS_KEY, null);
+    return { ...DEFAULT_RUN_STATS, ...(saved || {}) };
+  });
+
+  const [runCompleted, setRunCompleted] = useState(() => {
+    return secureStorage.getItem(RUN_COMPLETED_KEY, false);
   });
 
   // Effects for Persistence with Encryption
@@ -127,6 +149,56 @@ export default function useSurvivalProgress(mode) {
     else secureStorage.removeItem(LAST_REWARD_KEY);
   }, [lastReward, LAST_REWARD_KEY]);
 
+  useEffect(() => {
+    secureStorage.setItem(RUN_STATS_KEY, runStats);
+  }, [runStats, RUN_STATS_KEY]);
+
+  useEffect(() => {
+    secureStorage.setItem(RUN_COMPLETED_KEY, runCompleted);
+  }, [runCompleted, RUN_COMPLETED_KEY]);
+
+  useEffect(() => {
+    setRunStats((prev) => {
+      const current = { ...DEFAULT_RUN_STATS, ...(prev || {}) };
+      if (streak <= current.highestStreak) return current;
+      return { ...current, highestStreak: streak };
+    });
+  }, [streak]);
+
+  useEffect(() => {
+    setRunStats((prev) => {
+      const current = { ...DEFAULT_RUN_STATS, ...(prev || {}) };
+      if (currency <= current.highestCash) return current;
+      return { ...current, highestCash: currency };
+    });
+  }, [currency]);
+
+  const addWordsTyped = (count = 1) => {
+    if (count <= 0) return;
+    setRunStats((prev) => ({
+      ...DEFAULT_RUN_STATS,
+      ...(prev || {}),
+      wordsTyped: ((prev?.wordsTyped || 0) + count),
+    }));
+  };
+
+  const addWin = (wordsGuessed = 1) => {
+    setRunStats((prev) => ({
+      ...DEFAULT_RUN_STATS,
+      ...(prev || {}),
+      wins: (prev?.wins || 0) + 1,
+      wordsGuessed: (prev?.wordsGuessed || 0) + Math.max(1, wordsGuessed),
+    }));
+  };
+
+  const addLoss = () => {
+    setRunStats((prev) => ({
+      ...DEFAULT_RUN_STATS,
+      ...(prev || {}),
+      losses: (prev?.losses || 0) + 1,
+    }));
+  };
+
   const resetRoundInfo = () => {
     setHintsUsedInRound({});
     setLastReward(null);
@@ -143,6 +215,10 @@ export default function useSurvivalProgress(mode) {
       HINT_HISTORY_KEY,
       LAST_REWARD_KEY,
       GAMES_PLAYED_KEY,
+      BOSS2_COUNT_KEY,
+      BOSS4_COUNT_KEY,
+      RUN_STATS_KEY,
+      RUN_COMPLETED_KEY,
     ];
     keysToRemove.forEach((key) => secureStorage.removeItem(key));
 
@@ -150,12 +226,16 @@ export default function useSurvivalProgress(mode) {
     setStreak(0);
     setHearts(3);
     setCurrency(2500);
-    setGamesPlayed(0);
+    setGamesPlayed(1);
 
     setHintsArray(JSON.parse(JSON.stringify(DEFAULT_HINTS)));
     setHintHistory([]);
     setHintsUsedInRound({});
     setLastReward(null);
+    setBoss2Count(0);
+    setBoss4Count(0);
+    setRunStats(DEFAULT_RUN_STATS);
+    setRunCompleted(false);
   };
 
   return {
@@ -179,6 +259,12 @@ export default function useSurvivalProgress(mode) {
     setBoss2Count,
     boss4Count,
     setBoss4Count,
+    runStats,
+    addWordsTyped,
+    addWin,
+    addLoss,
+    runCompleted,
+    setRunCompleted,
     resetRoundInfo,
     resetAllProgress,
   };
