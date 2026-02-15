@@ -150,10 +150,6 @@ export default function useSurvivalGame(mode) {
     return [solutionWords[random]];
   }, [isBossGame, bossWordCount, randomIndices, random, solutionWords]);
   const targetWord = targetWords[0];
-  const targetSignature = useMemo(
-    () => `${isBossGame ? "boss" : "normal"}:${targetWords.join("|")}`,
-    [isBossGame, targetWords],
-  );
 
   // [UPDATED] Guesses - now stores objects with wordIndex
   const [guesses, setGuesses] = useState(() => {
@@ -210,22 +206,6 @@ export default function useSurvivalGame(mode) {
     letter: null,
     timestamp: 0,
   });
-
-  // Log only when the actual target assignment changes.
-  useEffect(() => {
-    if (isBossGame && bossWordCount > 1) {
-      console.log(
-        `[SURVIVAL BOSS MODE - ${bossWordCount} WORDS] Target Words:`,
-        targetWords.map((w) => w?.toUpperCase()),
-      );
-    } else {
-      console.log(`[SURVIVAL MODE] Target Word: ${targetWord?.toUpperCase()}`);
-    }
-  }, [targetSignature, targetWord, targetWords, isBossGame, bossWordCount]);
-
-  useEffect(() => {
-    console.log(`[SURVIVAL MODE] Remaining Solutions: ${availableSolutionIndices.length}`);
-  }, [availableSolutionIndices.length]);
 
   // Persistence with Encryption
   useEffect(() => {

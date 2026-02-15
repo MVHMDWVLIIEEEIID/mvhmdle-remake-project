@@ -23,9 +23,7 @@ export const secureStorage = {
       const bytes = CryptoJS.AES.decrypt(encryptedItem, SECRET_KEY);
       const decryptedData = bytes.toString(CryptoJS.enc.Utf8);
       return JSON.parse(decryptedData);
-    } catch (error) {
-      console.log(error);
-      console.warn("Tampering detected for key:", key);
+    } catch {
       return initialValue;
     }
   },

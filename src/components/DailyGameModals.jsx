@@ -90,7 +90,6 @@ function DefinitionSection({ word }) {
             "No definition found.",
         );
       } catch (err) {
-        console.log(err);
         setDefinition("Definition unavailable.");
       } finally {
         setLoading(false);

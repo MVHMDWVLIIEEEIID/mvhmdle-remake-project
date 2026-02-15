@@ -8,4 +8,5 @@ export default defineConfig({
     drop: ["console", "debugger"],
   },
   plugins: [react(), tailwindcss()],
+  base: "/mvhmdle-remake-project/",
 });

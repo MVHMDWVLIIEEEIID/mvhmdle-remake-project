@@ -119,22 +119,8 @@ export default function Daily({ mode = "daily" }) {
       await navigator.clipboard.writeText(shareText);
       addToast("Copied!", "success");
     } catch (err) {
-      console.log(err);
       addToast("Failed to copy", "error");
     }
-  };
-
-  // --- DEBUG RESET FUNCTION ---
-  const handleDebugReset = (e) => {
-    e.target.blur(); // Remove focus
-    const keys = [
-      `wordle-guesses-${mode}`,
-      `wordle-letters-${mode}`,
-      `wordle-state-${mode}`,
-      `wordle-last-played-${mode}`,
-    ];
-    keys.forEach((key) => localStorage.removeItem(key));
-    window.location.reload();
   };
 
   return (
@@ -173,14 +159,6 @@ export default function Daily({ mode = "daily" }) {
       <div className="flex-5 center shrink-0 mb-4">
         <Keyboard letters={game.letters} lastChanged={game.lastChanged} />
       </div>
-
-      {/* DEBUG BUTTON */}
-      <button
-        onClick={handleDebugReset}
-        className="absolute bottom-4 right-4 bg-red-600/20 hover:bg-red-600 text-white/50 hover:text-white text-[10px] font-bold py-2 px-3 rounded-lg border border-red-600/30 transition-all z-50 uppercase tracking-widest"
-      >
-        Reset Daily
-      </button>
 
       {/* Modals */}
       <DailyGameModals

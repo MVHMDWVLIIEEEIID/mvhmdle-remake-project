@@ -48,7 +48,6 @@ function DefinitionSection({ word, open = false }) {
               "No definition found.";
             setDefinition(firstDef);
           } catch (err) {
-            console.log(err);
             setError(true);
             setDefinition("Definition unavailable for this word.");
           } finally {
@@ -80,7 +79,6 @@ function DefinitionSection({ word, open = false }) {
           "No definition found.";
         setDefinition(firstDef);
       } catch (err) {
-        console.log(err);
         setError(true);
         setDefinition("Definition unavailable for this word.");
       } finally {

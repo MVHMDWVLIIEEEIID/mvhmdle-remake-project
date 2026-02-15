@@ -787,18 +787,6 @@ export default function Survival({ mode = "survival" }) {
         Guide
       </button>
 
-      <button
-        onClick={() => {
-          progress.setCurrency((prev) => prev + 999999);
-          addToast("Debug: +$999,999", "success");
-          document.activeElement.blur();
-          window.focus();
-        }}
-        className="absolute bottom-4 right-4 bg-gameGreen/20 hover:bg-gameGreen text-white/60 hover:text-white text-[10px] font-bold py-2 px-3 rounded-lg border border-gameGreen/30 transition-all z-50 uppercase tracking-widest"
-      >
-        Debug Cash
-      </button>
-
       <SurvivalGameModals
         isOpen={isModalOpen}
         onClose={() => {
