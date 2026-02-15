@@ -2,6 +2,7 @@ import { useState } from "react";
 import Header from "../components/Header";
 import Keyboard from "../components/Keyboard";
 import Tiles from "../components/Tiles";
+import BossTiles from "../components/BossTiles";
 import confetti from "canvas-confetti";
 import Shop from "../components/Shop";
 import HistoryPanel from "../components/HistoryPanel";
@@ -21,6 +22,62 @@ export default function Survival({ mode = "survival" }) {
 
   // 2. Meta-Game Progress Hook (Shop, Money, Hearts)
   const progress = useSurvivalProgress(mode);
+
+  // Helper function to merge keyboard colors from all words in boss mode
+  const getMergedKeyboardLetters = () => {
+    if (!game.isBossGame || game.bossWordCount <= 1) {
+      return game.letters;
+    }
+
+    // For boss games, merge colors from all target words
+    // Priority: Green > Yellow > Grey
+    const merged = JSON.parse(JSON.stringify(game.letters));
+
+    game.targetWords.forEach((targetWord, wordIdx) => {
+      if (!targetWord) return;
+
+      const word = targetWord.toLowerCase();
+      word.split("").forEach((char) => {
+        if (!merged[char]) return;
+
+        const charGuesses = game.guesses.filter(
+          (g) => g.wordIndex === wordIdx && g.word.includes(char),
+        );
+        if (charGuesses.length === 0) return;
+
+        const lastGuess = charGuesses[charGuesses.length - 1];
+        const solution = targetWord.toLowerCase();
+        const guessStr = lastGuess.word.toLowerCase();
+
+        // Check if char is in correct position
+        let foundGreen = false;
+        for (let i = 0; i < guessStr.length; i++) {
+          if (guessStr[i] === char && solution[i] === char) {
+            foundGreen = true;
+            break;
+          }
+        }
+
+        if (foundGreen) {
+          merged[char].color = " bg-gameGreen ";
+        } else {
+          // Check if char is in word but wrong position
+          if (
+            solution.includes(char) &&
+            !merged[char].color.includes("bg-gameGreen")
+          ) {
+            if (!merged[char].color.includes("bg-gameYellow")) {
+              merged[char].color = " bg-gameYellow ";
+            }
+          }
+        }
+      });
+    });
+
+    return merged;
+  };
+
+  const keyboardLetters = getMergedKeyboardLetters();
 
   const addToast = (msg, type = "info") => {
     const id = Date.now() + Math.random();
@@ -57,6 +114,23 @@ export default function Survival({ mode = "survival" }) {
     setIsModalOpen([false, "playing"]);
   };
 
+  // Retry the boss attempt without advancing the game counter
+  const handleRetryBoss = () => {
+    document.activeElement.blur();
+    window.focus();
+
+    if (game.isBossGame) {
+      game.retryBoss();
+      progress.resetRoundInfo();
+      setGameResetKey((prev) => prev + 1);
+      // Do NOT increment gamesPlayed here because this is a retry of the same run
+      setIsModalOpen([false, "playing"]);
+    } else {
+      // fallback to normal reset
+      handleResetWrapper();
+    }
+  };
+
   const handleFullReset = () => {
     document.activeElement.blur();
     window.focus();
@@ -72,19 +146,52 @@ export default function Survival({ mode = "survival" }) {
     setTimeout(() => {
       if (result === "won") {
         const unusedRows = game.maxTurns - guessCount;
+        // Boss game earnings (if applicable) or regular winnings
+        let BASE_WIN = 3000;
+        let bossBase = 0;
+        let bossBonus = 0;
 
-        // [REBALANCED] Adjusted for ~120-150 games to reach 1M
-        const BASE_WIN = 3000;
+        if (game.isBossGame && game.bossWordCount > 1) {
+          if (game.bossWordCount === 2) {
+            const basePerWord = 5000;
+            const bonusIncrement = 2000;
+            const prevCount = progress.boss2Count || 0; // times boss 2 was previously beaten
+            bossBase = basePerWord * 2; // 5k per word
+            bossBonus = bonusIncrement * (1 + prevCount); // initial 2k, stacks by 2k each recurrence
+            // persist increment for next time
+            progress.setBoss2Count((c) => (c || 0) + 1);
+          } else if (game.bossWordCount === 4) {
+            const basePerWord = 4000;
+            const bonusIncrement = 4000;
+            const prevCount = progress.boss4Count || 0;
+            bossBase = basePerWord * 4; // 4k per word
+            bossBonus = bonusIncrement * (1 + prevCount); // initial 4k bonus, stacks by 4k
+            // persist increment for next time
+            progress.setBoss4Count((c) => (c || 0) + 1);
+          }
+        }
+
         const SPEED_BONUS = unusedRows * 1000;
         const STREAK_BONUS = (progress.streak + 1) * 150;
 
-        const totalEarned = BASE_WIN + SPEED_BONUS + STREAK_BONUS;
+        const totalEarned = bossBase + bossBonus || BASE_WIN;
+        const grandTotal = game.isBossGame
+          ? totalEarned +
+            2000 *
+              (game.bossWordCount === 2
+                ? game.boss2Count || 0
+                : game.bossWordCount === 4
+                  ? game.boss4Count || 0
+                  : 0) +
+            STREAK_BONUS
+          : totalEarned + SPEED_BONUS + STREAK_BONUS;
 
-        progress.setCurrency((prev) => prev + totalEarned);
+        progress.setCurrency((prev) => prev + grandTotal);
         progress.setLastReward({
-          total: totalEarned,
+          total: grandTotal,
           breakdown: {
-            base: BASE_WIN,
+            base: bossBase || BASE_WIN,
+            bonus: bossBonus || 0,
             speed: SPEED_BONUS,
             streak: STREAK_BONUS,
             unusedCount: unusedRows,
@@ -279,32 +386,67 @@ export default function Survival({ mode = "survival" }) {
     window.focus();
 
     if (game.guesses.length === 0) return;
-    const grid = game.guesses
-      .map((guess) => {
-        const splitSolution = game.targetWord.toLowerCase().split("");
-        const splitGuess = guess.toLowerCase().split("");
-        const statuses = Array(5).fill("⬛");
-        splitGuess.forEach((char, i) => {
-          if (char === splitSolution[i]) {
-            statuses[i] = "🟩";
-            splitSolution[i] = null;
-          }
-        });
-        splitGuess.forEach((char, i) => {
-          if (statuses[i] !== "🟩") {
-            const idx = splitSolution.indexOf(char);
-            if (idx !== -1) {
-              statuses[i] = "🟨";
-              splitSolution[idx] = null;
+
+    if (game.isBossGame) {
+      // Boss game sharing
+      const gridsByWord = game.targetWords.map((word, wordIdx) => {
+        const wordGuesses = game.guesses.filter((g) => g.wordIndex === wordIdx);
+        return wordGuesses
+          .map((guessObj) => {
+            const splitSolution = word.toLowerCase().split("");
+            const splitGuess = guessObj.word.toLowerCase().split("");
+            const statuses = Array(5).fill("⬛");
+            splitGuess.forEach((char, i) => {
+              if (char === splitSolution[i]) {
+                statuses[i] = "🟩";
+                splitSolution[i] = null;
+              }
+            });
+            splitGuess.forEach((char, i) => {
+              if (statuses[i] !== "🟩") {
+                const idx = splitSolution.indexOf(char);
+                if (idx !== -1) {
+                  statuses[i] = "🟨";
+                  splitSolution[idx] = null;
+                }
+              }
+            });
+            return statuses.join("");
+          })
+          .join("\n");
+      });
+      const allGrids = gridsByWord.join("\n---\n");
+      const shareText = `MVHMDLE ${mode.toUpperCase()} BOSS (${game.bossWordCount} words)\n\n${allGrids}\n\nStreak: ${progress.streak}\nTotal: $${progress.currency.toLocaleString()} 💰`;
+      await navigator.clipboard.writeText(shareText);
+    } else {
+      // Normal game sharing
+      const grid = game.guesses
+        .map((guess) => {
+          const splitSolution = game.targetWord.toLowerCase().split("");
+          const splitGuess = guess.toLowerCase().split("");
+          const statuses = Array(5).fill("⬛");
+          splitGuess.forEach((char, i) => {
+            if (char === splitSolution[i]) {
+              statuses[i] = "🟩";
+              splitSolution[i] = null;
             }
-          }
-        });
-        return statuses.join("");
-      })
-      .join("\n");
-    const score = isModalOpen[1] === "won" ? game.guesses.length : "X";
-    const shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/${game.maxTurns}\n\n${grid}\n\nStreak: ${progress.streak}\nTotal: $${progress.currency.toLocaleString()} 💰`;
-    await navigator.clipboard.writeText(shareText);
+          });
+          splitGuess.forEach((char, i) => {
+            if (statuses[i] !== "🟩") {
+              const idx = splitSolution.indexOf(char);
+              if (idx !== -1) {
+                statuses[i] = "🟨";
+                splitSolution[idx] = null;
+              }
+            }
+          });
+          return statuses.join("");
+        })
+        .join("\n");
+      const score = isModalOpen[1] === "won" ? game.guesses.length : "X";
+      const shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/${game.maxTurns}\n\n${grid}\n\nStreak: ${progress.streak}\nTotal: $${progress.currency.toLocaleString()} 💰`;
+      await navigator.clipboard.writeText(shareText);
+    }
     addToast("Copied!", "success");
   }
 
@@ -336,42 +478,67 @@ export default function Survival({ mode = "survival" }) {
     <div className="flex flex-col h-screen relative overflow-hidden bg-gameDark text-white">
       <Toast toasts={toasts} />
       <div className="flex-1 center flex-col">
-        <Header mode={`${mode.toUpperCase()} MODE`} streak={progress.streak} />
+        <Header
+          mode={`${mode.toUpperCase()} MODE`}
+          streak={progress.streak}
+          hearts={progress.hearts}
+        />
       </div>
-      <div className="flex-7 flex justify-center items-start gap-6 px-10 pt-8 overflow-y-auto clean-scroll">
-        <div className="w-72">
-          <Shop
-            currency={progress.currency}
-            hintsArray={progress.hintsArray}
-            onBuyHint={handleBuyHint}
-            hintsUsedInRound={progress.hintsUsedInRound}
-            hasGuesses={game.guesses.length > 0}
-            gameState={game.gameState}
-            isModalOpen={isModalOpen[0]}
-          />
+      <div
+        className={`flex-10 flex justify-center items-center gap-6 px-10 overflow-y-auto clean-scroll`}
+      >
+        {!game.isBossGame && (
+          <div className="w-72">
+            <Shop
+              currency={progress.currency}
+              hintsArray={progress.hintsArray}
+              onBuyHint={handleBuyHint}
+              hintsUsedInRound={progress.hintsUsedInRound}
+              hasGuesses={game.guesses.length > 0}
+              gameState={game.gameState}
+              isModalOpen={isModalOpen[0]}
+            />
+          </div>
+        )}
+        <div
+          className={game.isBossGame ? "flex-1 flex justify-center" : "w-96"}
+        >
+          {game.isBossGame ? (
+            <BossTiles
+              key={gameResetKey}
+              guesses={game.guesses}
+              turn={game.turn}
+              targetWords={game.targetWords}
+              gameState={game.gameState}
+              onGuessSubmit={(g, wordIdx) =>
+                game.submitGuess(g, wordIdx, handleGameOver)
+              }
+              onGameOver={handleGameOver}
+              addToast={addToast}
+              rowCount={game.maxTurns}
+            />
+          ) : (
+            <Tiles
+              key={gameResetKey}
+              guesses={game.guesses}
+              turn={game.turn}
+              targetWord={game.targetWord}
+              gameState={game.gameState}
+              onGuessSubmit={(g) => game.submitGuess(g, 0, handleGameOver)}
+              onGameOver={handleGameOver}
+              addToast={addToast}
+              rowCount={game.maxTurns}
+            />
+          )}
         </div>
-        <div className="w-96">
-          <Tiles
-            key={gameResetKey}
-            guesses={game.guesses}
-            turn={game.turn}
-            targetWord={game.targetWord}
-            gameState={game.gameState}
-            onGuessSubmit={(g) => game.submitGuess(g, handleGameOver)}
-            onGameOver={handleGameOver}
-            addToast={addToast}
-            rowCount={game.maxTurns}
-          />
-        </div>
-        <div className="w-72">
-          <HistoryPanel
-            history={progress.hintHistory}
-            hearts={progress.hearts}
-          />
-        </div>
+        {!game.isBossGame && (
+          <div className="w-72">
+            <HistoryPanel history={progress.hintHistory} />
+          </div>
+        )}
       </div>
       <div className="flex-5 center shrink-0 mb-4">
-        <Keyboard letters={game.letters} lastChanged={game.lastChanged} />
+        <Keyboard letters={keyboardLetters} lastChanged={game.lastChanged} />
       </div>
 
       <SurvivalGameModals
@@ -381,11 +548,14 @@ export default function Survival({ mode = "survival" }) {
           document.activeElement.blur();
           window.focus();
         }}
-        onNext={() =>
-          isModalOpen[1] === "game-over"
-            ? handleFullReset()
-            : handleResetWrapper()
-        }
+        onNext={() => {
+          const modalType = isModalOpen[1];
+          if (modalType === "game-over") return handleFullReset();
+          // If player lost a boss attempt but still has hearts, retry boss
+          if (modalType === "lost-heart" && game.isBossGame)
+            return handleRetryBoss();
+          return handleResetWrapper();
+        }}
         onShare={shareGame}
         onFullReset={handleFullReset}
         stats={{
@@ -395,6 +565,11 @@ export default function Survival({ mode = "survival" }) {
           hearts: progress.hearts,
           lastReward: progress.lastReward,
           targetWord: game.targetWord,
+          targetWords: game.targetWords,
+          isBossGame: game.isBossGame,
+          bossWordCount: game.bossWordCount,
+          boss2Count: progress.boss2Count,
+          boss4Count: progress.boss4Count,
         }}
       />
     </div>

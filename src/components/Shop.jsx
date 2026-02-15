@@ -35,7 +35,7 @@ export default function Shop({
             currentPrice = data.cost + usedCount * 150;
           } else if (name === "Heart") {
             // Permanent: scales linearly with lifetime purchases
-            currentPrice = data.cost * (1 + totalBought);
+            currentPrice = data.cost + totalBought * 25000;
           } else if (name === "Beat The Game") {
             currentPrice = data.cost;
           } else {

@@ -115,6 +115,11 @@ export default function useDailyGame(mode = "daily") {
     timestamp: 0,
   });
 
+  // [NEW] Console log for target word
+  useEffect(() => {
+    console.log(`[DAILY MODE] Target Word: ${targetWord?.toUpperCase()}`);
+  }, [targetWord]);
+
   // --- Persistence with Encryption ---
   useEffect(() => {
     // [UPDATED] Replace localStorage.setItem with secureStorage.setItem

@@ -1,18 +1,65 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Modal from "./Modal";
 
 // --- Definition Component (Unchanged) ---
-function DefinitionSection({ word }) {
+function DefinitionSection({ word, open = false }) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [definition, setDefinition] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
+  // refs to hold latest values so effects can read them without
+  // requiring them in dependency arrays (prevents repeated effect runs)
+  const definitionRef = useRef(definition);
+  const loadingRef = useRef(loading);
+  const errorRef = useRef(error);
 
   useEffect(() => {
-    setIsExpanded(false);
     setDefinition(null);
     setError(false);
   }, [word]);
+
+  useEffect(() => {
+    definitionRef.current = definition;
+  }, [definition]);
+  useEffect(() => {
+    loadingRef.current = loading;
+  }, [loading]);
+  useEffect(() => {
+    errorRef.current = error;
+  }, [error]);
+
+  useEffect(() => {
+    // controlled open: only run when `open` or `word` changes to avoid
+    // re-running during the fetch which caused a glitch on first click.
+    if (open) {
+      setIsExpanded(true);
+      // fetch if needed (read from refs to avoid effect deps)
+      if (!definitionRef.current && !loadingRef.current && !errorRef.current) {
+        (async () => {
+          setLoading(true);
+          try {
+            const res = await fetch(
+              `https://api.dictionaryapi.dev/api/v2/entries/en/${word}`,
+            );
+            if (!res.ok) throw new Error("Not found");
+            const data = await res.json();
+            const firstDef =
+              data[0]?.meanings[0]?.definitions[0]?.definition ||
+              "No definition found.";
+            setDefinition(firstDef);
+          } catch (err) {
+            console.log(err);
+            setError(true);
+            setDefinition("Definition unavailable for this word.");
+          } finally {
+            setLoading(false);
+          }
+        })();
+      }
+    } else {
+      setIsExpanded(false);
+    }
+  }, [open, word]);
 
   const handleToggle = async () => {
     if (isExpanded) {
@@ -48,7 +95,9 @@ function DefinitionSection({ word }) {
         onClick={handleToggle}
         className="group flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-white/30 hover:text-white/80 transition-all duration-300"
       >
-        <span>{isExpanded ? "Hide Definition" : "Show Definition"}</span>
+        <span>
+          {isExpanded ? "Hide Definition" : `Show definition of ${word}`}
+        </span>
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 20 20"
@@ -106,6 +155,24 @@ export default function SurvivalGameModals({
   stats,
 }) {
   const [showModal, modalType] = isOpen;
+  const defsRef = useRef([]);
+  const [expandedDefs, setExpandedDefs] = useState([]);
+
+  useEffect(() => {
+    const handler = (e) => {
+      const idx = e.detail?.index;
+      if (typeof idx === "number") {
+        setExpandedDefs((prev) => (prev.includes(idx) ? prev : [...prev, idx]));
+        setTimeout(() => {
+          const el = defsRef.current[idx];
+          if (el && el.scrollIntoView)
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }, 120);
+      }
+    };
+    window.addEventListener("showDefinition", handler);
+    return () => window.removeEventListener("showDefinition", handler);
+  }, []);
 
   const getModalContent = () => {
     // [NEW] Victory Modal for beating the game
@@ -168,17 +235,37 @@ export default function SurvivalGameModals({
 
     if (modalType === "won") {
       return {
-        title: "You Won",
+        title: stats.isBossGame ? `BOSS DEFEATED` : "You Won",
         status: "success",
         content: stats.lastReward && (
           <div className="flex flex-col w-full items-center">
             <div className="flex flex-col items-center gap-1 mb-4">
               <p className="text-[10px] text-gameGreen/50 uppercase tracking-widest font-bold">
-                The word was
+                {stats.isBossGame
+                  ? `Boss: ${stats.bossWordCount} words`
+                  : "The word was"}
               </p>
-              <p className="text-3xl font-black text-white uppercase tracking-wider drop-shadow-[0_0_15px_rgba(74,222,128,0.25)]">
-                "{stats.targetWord}"
-              </p>
+              {stats.isBossGame ? (
+                <div className="w-full">
+                  <div
+                    className={`${stats.bossWordCount === 2 ? "text-2xl" : "text-xl"} font-black text-white uppercase tracking-wider drop-shadow-[0_0_15px_rgba(74,222,128,0.25)] text-center mb-3`}
+                  >
+                    [
+                    {stats.targetWords.map((w, i) => (
+                      <span key={i} className="inline-block">
+                        "{w}"{i < stats.targetWords.length - 1 ? ", " : ""}
+                      </span>
+                    ))}
+                    ]
+                  </div>
+
+                  {/* per-word definition buttons removed by request */}
+                </div>
+              ) : (
+                <p className="text-3xl font-black text-white uppercase tracking-wider drop-shadow-[0_0_15px_rgba(74,222,128,0.25)]">
+                  "{stats.targetWord}"
+                </p>
+              )}
             </div>
 
             <div className="flex gap-4 w-full mt-2">
@@ -204,13 +291,35 @@ export default function SurvivalGameModals({
                     <span>Win Bonus</span>
                     <span>+{stats.lastReward.breakdown.base}</span>
                   </div>
-                  <div className="flex justify-between text-[10px] font-mono text-white/60">
-                    <span>
-                      Guesses Not Used ({stats.lastReward.breakdown.unusedCount}
-                      )
-                    </span>
-                    <span>+{stats.lastReward.breakdown.speed}</span>
-                  </div>
+                  {stats.isBossGame ? (
+                    <div className="flex justify-between text-[10px] font-mono text-white/60">
+                      <span>
+                        Boss Defeat Streak (
+                        {stats.bossWordCount === 2
+                          ? stats.boss2Count || 0
+                          : stats.bossWordCount === 4
+                            ? stats.boss4Count || 0
+                            : 0}{" "}
+                        times)
+                      </span>
+                      <span>
+                        +
+                        {stats.bossWordCount === 2
+                          ? 2000 * stats.boss2Count || 0
+                          : stats.bossWordCount === 4
+                            ? 4000 * stats.boss4Count || 0
+                            : 0}
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="flex justify-between text-[10px] font-mono text-white/60">
+                      <span>
+                        Guesses Not Used (
+                        {stats.lastReward.breakdown.unusedCount})
+                      </span>
+                      <span>+{stats.lastReward.breakdown.speed}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-[10px] font-mono text-white/60">
                     <span>Streak Bonus</span>
                     <span>+{stats.lastReward.breakdown.streak}</span>
@@ -218,7 +327,20 @@ export default function SurvivalGameModals({
                 </div>
               </div>
             </div>
-            <DefinitionSection word={stats.targetWord} />
+            {stats.isBossGame ? (
+              <div className="w-full max-h-35 overflow-y-auto mt-4 space-y-4 hide-scrollbar">
+                {stats.targetWords.map((word, idx) => (
+                  <div key={idx} ref={(el) => (defsRef.current[idx] = el)}>
+                    <DefinitionSection
+                      word={word}
+                      open={expandedDefs.includes(idx)}
+                    />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <DefinitionSection word={stats.targetWord} />
+            )}
           </div>
         ),
       };
@@ -230,10 +352,25 @@ export default function SurvivalGameModals({
         status: "warning", // Changed to Warning (Yellow)
         content: (
           <div className="flex flex-col items-center gap-4 w-full">
-            <p className="text-gameLight/50 uppercase">The Word Was :</p>
-            <p className="text-4xl font-black text-gameLight uppercase">
-              "{stats.targetWord}"
+            <p className="text-gameLight/50 uppercase">
+              {stats.isBossGame ? `Boss Attempt Failed:` : `The Word Was:`}
             </p>
+            {stats.isBossGame ? (
+              <div className="flex flex-col gap-2 w-full">
+                {stats.targetWords.map((word, idx) => (
+                  <p
+                    key={idx}
+                    className="text-3xl font-black text-gameLight uppercase text-center"
+                  >
+                    "{word}"
+                  </p>
+                ))}
+              </div>
+            ) : (
+              <p className="text-4xl font-black text-gameLight uppercase">
+                "{stats.targetWord}"
+              </p>
+            )}
             <div className="flex gap-2">
               {[...Array(stats.hearts)].map((_, i) => (
                 <span key={i} className="text-3xl">
@@ -261,7 +398,7 @@ export default function SurvivalGameModals({
                 </span>
               ))}
             </div>
-            <DefinitionSection word={stats.targetWord} />
+            {!stats.isBossGame && <DefinitionSection word={stats.targetWord} />}
           </div>
         ),
         footer: (
@@ -291,11 +428,24 @@ export default function SurvivalGameModals({
           <div className="flex flex-col items-center gap-6 w-full">
             <div className="flex flex-col items-center gap-2">
               <p className="text-xs text-white/40 uppercase tracking-widest">
-                The word was
+                {stats.isBossGame ? `Boss:` : `The word was`}
               </p>
-              <p className="text-4xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)]">
-                "{stats.targetWord}"
-              </p>
+              {stats.isBossGame ? (
+                <div className="flex flex-col gap-2 w-full">
+                  {stats.targetWords.map((word, idx) => (
+                    <p
+                      key={idx}
+                      className="text-3xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)] text-center"
+                    >
+                      "{word}"
+                    </p>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-4xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)]">
+                  "{stats.targetWord}"
+                </p>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3 w-full mt-2">
               <div className="bg-gameRed/10 border border-gameRed/20 rounded-2xl p-4 flex flex-col items-center justify-center">
@@ -315,7 +465,7 @@ export default function SurvivalGameModals({
                 </span>
               </div>
             </div>
-            <DefinitionSection word={stats.targetWord} />
+            {!stats.isBossGame && <DefinitionSection word={stats.targetWord} />}
           </div>
         ),
         footer: (
@@ -348,4 +498,3 @@ export default function SurvivalGameModals({
     </Modal>
   );
 }
-  

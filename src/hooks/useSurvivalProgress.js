@@ -4,10 +4,10 @@ import { secureStorage } from "../utils/secureStorage"; // [NEW] Import
 const DEFAULT_HINTS = {
   "Hide a Letter": { cost: 500, bought: 0, desc: "Discard 1 incorrect key." },
   "Vowel Letter": { cost: 500, bought: 0, desc: "Locate a hidden vowel." },
-  "Yellow Letter": { cost: 500, bought: 0, desc: "Find a misplaced key." },
-  "Green Letter": { cost: 800, bought: 0, desc: "Confirm a correct spot." },
-  Row: { cost: 1200, bought: 0, desc: "Get a Seventh Row" },
-  Heart: { cost: 2000, bought: 0, desc: "+1 Extra Life." },
+  "Yellow Letter": { cost: 1000, bought: 0, desc: "Find a misplaced key." },
+  "Green Letter": { cost: 1800, bought: 0, desc: "Confirm a correct spot." },
+  Row: { cost: 2500, bought: 0, desc: "Get a Seventh Row" },
+  Heart: { cost: 100000, bought: 0, desc: "+1 Extra Life." },
   "Beat The Game": { cost: 999999, bought: 0, desc: "Instant Extraction." },
 };
 
@@ -21,6 +21,8 @@ export default function useSurvivalProgress(mode) {
   const HINT_HISTORY_KEY = `wordle-hint-history-${mode}`;
   const LAST_REWARD_KEY = `wordle-last-reward-${mode}`;
   const GAMES_PLAYED_KEY = `wordle-games-played-${mode}`;
+  const BOSS2_COUNT_KEY = `wordle-boss2-count-${mode}`;
+  const BOSS4_COUNT_KEY = `wordle-boss4-count-${mode}`;
 
   // State Initializers with Encryption
   const [currency, setCurrency] = useState(() => {
@@ -69,6 +71,14 @@ export default function useSurvivalProgress(mode) {
     return secureStorage.getItem(LAST_REWARD_KEY, null);
   });
 
+  const [boss2Count, setBoss2Count] = useState(() => {
+    return secureStorage.getItem(BOSS2_COUNT_KEY, 0);
+  });
+
+  const [boss4Count, setBoss4Count] = useState(() => {
+    return secureStorage.getItem(BOSS4_COUNT_KEY, 0);
+  });
+
   const [gamesPlayed, setGamesPlayed] = useState(() => {
     // [UPDATED]
     return secureStorage.getItem(GAMES_PLAYED_KEY, 1);
@@ -103,6 +113,14 @@ export default function useSurvivalProgress(mode) {
     () => secureStorage.setItem(GAMES_PLAYED_KEY, gamesPlayed),
     [gamesPlayed, GAMES_PLAYED_KEY],
   );
+
+  useEffect(() => {
+    secureStorage.setItem(BOSS2_COUNT_KEY, boss2Count);
+  }, [boss2Count, BOSS2_COUNT_KEY]);
+
+  useEffect(() => {
+    secureStorage.setItem(BOSS4_COUNT_KEY, boss4Count);
+  }, [boss4Count, BOSS4_COUNT_KEY]);
 
   useEffect(() => {
     if (lastReward) secureStorage.setItem(LAST_REWARD_KEY, lastReward);
@@ -157,6 +175,10 @@ export default function useSurvivalProgress(mode) {
     setLastReward,
     gamesPlayed,
     setGamesPlayed,
+    boss2Count,
+    setBoss2Count,
+    boss4Count,
+    setBoss4Count,
     resetRoundInfo,
     resetAllProgress,
   };
