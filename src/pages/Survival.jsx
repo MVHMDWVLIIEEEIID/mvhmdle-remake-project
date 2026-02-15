@@ -338,7 +338,7 @@ export default function Survival({ mode = "survival" }) {
       <div className="flex-1 center flex-col">
         <Header mode={`${mode.toUpperCase()} MODE`} streak={progress.streak} />
       </div>
-      <div className="flex-6 flex justify-center items-start gap-6 px-10 pt-8 overflow-y-auto clean-scroll">
+      <div className="flex-7 flex justify-center items-start gap-6 px-10 pt-8 overflow-y-auto clean-scroll">
         <div className="w-72">
           <Shop
             currency={progress.currency}

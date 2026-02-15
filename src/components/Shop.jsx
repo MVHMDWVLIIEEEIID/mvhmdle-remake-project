@@ -9,7 +9,7 @@ export default function Shop({
   isModalOpen,
 }) {
   return (
-    <div className="h-72 w-72 text-gameLight rounded-lg flex flex-col bg-[#0a0a0a] border-2 border-gameLight shadow-[0_0_15px_rgba(0,0,0,0.5)] overflow-hidden font-sans">
+    <div className="h-72 w-full text-gameLight rounded-lg flex flex-col bg-[#0a0a0a] border-2 border-gameLight shadow-[0_0_15px_rgba(0,0,0,0.5)] overflow-hidden font-sans">
       <header className="h-12 flex-none bg-gameLight px-4 flex justify-between items-center border-b-2 border-gameLight/30">
         <div className="flex flex-col">
           <h2 className="text-xs font-black uppercase text-gameDark leading-none">
@@ -25,27 +25,31 @@ export default function Shop({
 
       <div className="flex-1 overflow-y-auto clean-scroll">
         {Object.entries(hintsArray).map(([name, data]) => {
+          const usedCount = hintsUsedInRound[name] || 0;
+          const totalBought = data.bought || 0;
           let currentPrice;
 
+          // --- PRICING LOGIC ---
           if (name === "Hide a Letter") {
-            currentPrice = data.cost + (data.bought || 0) * 150;
+            // Consumable: scales with round usage
+            currentPrice = data.cost + usedCount * 150;
+          } else if (name === "Heart") {
+            // Permanent: scales linearly with lifetime purchases
+            currentPrice = data.cost * (1 + totalBought);
+          } else if (name === "Beat The Game") {
+            currentPrice = data.cost;
           } else {
-            currentPrice = Math.floor(
-              data.cost * Math.pow(1.25, data.bought || 0),
-            );
+            // Standard Hints: Scale linearly 25%
+            currentPrice = Math.floor(data.cost * (1 + totalBought * 0.25));
           }
-          const canAfford = currency >= currentPrice;
-          const usedCount = hintsUsedInRound[name] || 0;
 
-          // --- LOCKING LOGIC ---
+          const canAfford = currency >= currentPrice;
           const isRoundOver = gameState !== "playing" || isModalOpen;
 
           let isLocked = false;
-
           if (name === "Hide a Letter") {
             isLocked = usedCount >= 5;
           } else if (
-            // [UPDATED] Added "Row" and "Heart" to the single-use list
             [
               "Green Letter",
               "Yellow Letter",
@@ -64,7 +68,7 @@ export default function Shop({
               key={name}
               onClick={() => onBuyHint(name, currentPrice)}
               disabled={isDisabled}
-              className={`group w-full border-b border-gameLight/10 px-3 py-2.5 transition-all duration-200 flex flex-col h-14 justify-center relative
+              className={`group w-full border-b border-gameLight/10 px-3 transition-all duration-200 flex flex-row items-center justify-between h-14 relative
                 ${!isDisabled ? "hover:bg-gameLight/5 active:bg-gameLight/10 cursor-pointer" : "opacity-30 cursor-not-allowed"}
               `}
             >
@@ -73,14 +77,26 @@ export default function Shop({
                 <div className="absolute left-0 top-0 bottom-0 w-1 bg-gameLight scale-y-0 group-hover:scale-y-100 transition-transform duration-200" />
               )}
 
-              <div className="flex justify-between w-full items-center mb-0.5">
+              {/* LEFT SIDE: Name & Description */}
+              <div className="flex flex-col items-start gap-0.5 flex-1 min-w-0 mr-2">
                 <span
-                  className={`text-xs font-black uppercase tracking-tight transition-colors ${!isDisabled ? "text-white group-hover:text-gameLight" : "text-white/40"}`}
+                  className={`text-xs font-black uppercase tracking-tight truncate w-full text-left transition-colors ${
+                    !isDisabled
+                      ? "text-white group-hover:text-gameLight"
+                      : "text-white/40"
+                  }`}
                 >
                   {name}
                 </span>
+                <p className="text-[9px] text-white/40 leading-tight uppercase tracking-tighter font-medium text-left truncate w-full">
+                  {data.desc}
+                </p>
+              </div>
+
+              {/* RIGHT SIDE: Price & Level Stack */}
+              <div className="flex flex-col items-center justify-center shrink-0">
                 <span
-                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded ${
+                  className={`text-[10px] font-mono font-bold px-1.5 py-0.5 rounded mb-0.5 ${
                     canAfford
                       ? "bg-green-500/10 text-green-500"
                       : "bg-red-500/10 text-red-500"
@@ -88,17 +104,14 @@ export default function Shop({
                 >
                   ${currentPrice.toLocaleString()}
                 </span>
-              </div>
 
-              <div className="flex justify-between w-full items-center">
-                <p className="text-[9px] text-white/40 leading-tight uppercase tracking-tighter font-medium">
-                  {data.desc}
-                </p>
-                {data.bought > 0 && (
-                  <span className="text-[8px] text-yellow-600 font-bold">
-                    Bought : {data.bought} {data.bought > 1 ? "Times" : "Time"}
+                {/* Level Display */}
+                {name !== "Hide a Letter" && data.bought > 0 ? (
+                  <span className="text-[8px] text-yellow-600 font-bold uppercase tracking-wide">
+                    Lvl {data.bought}
                   </span>
-                )}
+                ) : // Empty placeholder to keep alignment consistent if needed, or just null
+                null}
               </div>
             </button>
           );
