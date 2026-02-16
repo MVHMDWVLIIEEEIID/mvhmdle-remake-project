@@ -38,9 +38,6 @@ export default function BossKeyboard({
         <span className="relative z-10 text-2xl font-bold leading-none">
           {letter}
         </span>
-        {showLines && (
-          <span className="absolute inset-0 rounded opacity-10 bg-black" />
-        )}
       </>
     );
 
