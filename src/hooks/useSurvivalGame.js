@@ -151,6 +151,21 @@ export default function useSurvivalGame(mode) {
   }, [isBossGame, bossWordCount, randomIndices, random, solutionWords]);
   const targetWord = targetWords[0];
 
+  useEffect(() => {
+    if (!Array.isArray(targetWords) || targetWords.length === 0) return;
+
+    if (isBossGame && bossWordCount > 1) {
+      console.log(
+        `[DEBUG][${mode}] target words (${bossWordCount}): ${targetWords.join(", ")}`,
+      );
+      return;
+    }
+
+    if (targetWord) {
+      console.log(`[DEBUG][${mode}] target word: ${targetWord}`);
+    }
+  }, [mode, isBossGame, bossWordCount, targetWord, targetWords]);
+
   // [UPDATED] Guesses - now stores objects with wordIndex
   const [guesses, setGuesses] = useState(() => {
     const savedGuesses = secureStorage.getItem(TILES_GUESSES_KEY, null);
@@ -328,6 +343,9 @@ export default function useSurvivalGame(mode) {
       return false;
 
     if (isBossGame && bossWordCount > 1) {
+      // Reject repeated guesses in boss rounds across all rows/words.
+      if (guesses.some((g) => g.word === guess)) return false;
+
       // Boss game with multiple words
 
       if (bossWordCount === 4) {

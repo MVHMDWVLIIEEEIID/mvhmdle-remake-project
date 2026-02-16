@@ -30,6 +30,7 @@ export default function Survival({ mode = "survival" }) {
     rowNumber: -1,
     revealedCount: 5,
   });
+  const [bossKeyboardView, setBossKeyboardView] = useState("all");
   const bossRevealTimersRef = useRef([]);
   const prevBossGuessesLenRef = useRef(0);
   const bossRevealInitializedRef = useRef(false);
@@ -123,11 +124,28 @@ export default function Survival({ mode = "survival" }) {
     return clearTimers;
   }, [game.guesses, game.isBossGame, game.bossWordCount]);
 
+  useEffect(() => {
+    if (!game.isBossGame || game.bossWordCount <= 1) {
+      setBossKeyboardView("all");
+      return;
+    }
+    if (
+      bossKeyboardView !== "all" &&
+      (bossKeyboardView < 0 || bossKeyboardView >= game.bossWordCount)
+    ) {
+      setBossKeyboardView("all");
+    }
+  }, [game.isBossGame, game.bossWordCount, bossKeyboardView]);
+
   const getBossKeyboardLineColors = () => {
     if (!game.isBossGame || game.bossWordCount <= 1) return {};
     const isRevealLocked = bossRevealProgress.rowNumber >= 0;
     const latestRowNumber = bossRevealProgress.rowNumber;
     const revealedCount = bossRevealProgress.revealedCount;
+    const visibleWordIndices =
+      bossKeyboardView === "all"
+        ? Array.from({ length: game.bossWordCount }, (_, idx) => idx)
+        : [bossKeyboardView];
 
     const isLetterRevealedForGuess = (guessObj, letter) => {
       const guess = guessObj.word.toLowerCase();
@@ -148,10 +166,11 @@ export default function Survival({ mode = "survival" }) {
 
     const keyMap = {};
     Object.keys(game.letters).forEach((key) => {
-      keyMap[key] = Array(game.bossWordCount).fill("bg-gameLight");
+      keyMap[key] = Array(visibleWordIndices.length).fill("bg-gameLight");
     });
 
-    game.targetWords.forEach((targetWord, wordIdx) => {
+    visibleWordIndices.forEach((wordIdx, segmentIdx) => {
+      const targetWord = game.targetWords[wordIdx];
       if (!targetWord) return;
       const solution = targetWord.toLowerCase();
 
@@ -167,7 +186,7 @@ export default function Survival({ mode = "survival" }) {
         );
 
         if (guessesForWord.length === 0) {
-          keyMap[key][wordIdx] = "bg-gameLight";
+          keyMap[key][segmentIdx] = "bg-gameLight";
           return;
         }
 
@@ -190,14 +209,14 @@ export default function Survival({ mode = "survival" }) {
         });
 
         if (hasGreen) {
-          keyMap[key][wordIdx] = "bg-gameGreen";
+          keyMap[key][segmentIdx] = "bg-gameGreen";
           return;
         }
 
         if (solution.includes(letter)) {
-          keyMap[key][wordIdx] = "bg-gameYellow";
+          keyMap[key][segmentIdx] = "bg-gameYellow";
         } else {
-          keyMap[key][wordIdx] = "bg-gameGrey";
+          keyMap[key][segmentIdx] = "bg-gameGrey";
         }
       });
     });
@@ -770,6 +789,9 @@ export default function Survival({ mode = "survival" }) {
             letters={game.letters}
             lastChanged={game.lastChanged}
             lineColorsByLetter={bossKeyboardLineColors}
+            bossWordCount={game.bossWordCount}
+            selectedView={bossKeyboardView}
+            onSelectedViewChange={setBossKeyboardView}
           />
         ) : (
           <Keyboard letters={game.letters} lastChanged={game.lastChanged} />

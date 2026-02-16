@@ -7,7 +7,7 @@ const DEFAULT_HINTS = {
   "Yellow Letter": { cost: 1000, bought: 0, desc: "Find a misplaced key." },
   "Green Letter": { cost: 1800, bought: 0, desc: "Confirm a correct spot." },
   Row: { cost: 2500, bought: 0, desc: "Get a Seventh Row" },
-  Heart: { cost: 100000, bought: 0, desc: "+1 Extra Life." },
+  Heart: { cost: 50000, bought: 0, desc: "+1 Extra Life." },
   "Beat The Game": { cost: 999999, bought: 0, desc: "Instant Extraction." },
 };
 

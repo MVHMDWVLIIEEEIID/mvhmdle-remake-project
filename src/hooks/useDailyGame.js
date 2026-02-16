@@ -59,6 +59,11 @@ export default function useDailyGame(mode = "daily") {
 
   const targetWord = solutionWords[getDailyIndex()];
 
+  useEffect(() => {
+    if (!targetWord) return;
+    console.log(`[DEBUG][${mode}] target word: ${targetWord}`);
+  }, [mode, targetWord, todayString]);
+
   // --- Lazy State Initialization with Encryption ---
 
   const [guesses, setGuesses] = useState(() => {

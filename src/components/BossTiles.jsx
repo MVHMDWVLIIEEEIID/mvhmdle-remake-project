@@ -90,6 +90,13 @@ export default function BossTiles({
           return;
         }
 
+        // Prevent duplicate guesses across the entire boss attempt.
+        if (guesses.some((g) => g.word === guessToSubmit)) {
+          triggerShake();
+          if (addToast) addToast("Word already submitted!", "error");
+          return;
+        }
+
         // For 4-word mode: submit guess to all 4 words
         if (isFourWordMode) {
           // Check if all 4 words are already solved
@@ -99,18 +106,6 @@ export default function BossTiles({
           if (allSolved) {
             triggerShake();
             if (addToast) addToast("Already completed!", "error");
-            return;
-          }
-
-          // Check if already guessed for any word
-          if (
-            guesses.some(
-              (g) => g.word === guessToSubmit && turn === g.rowNumber,
-            )
-          ) {
-            triggerShake();
-            if (addToast)
-              addToast("Already guessed this word for this row!", "error");
             return;
           }
 
@@ -254,7 +249,7 @@ export default function BossTiles({
               text-center ${tileWidthClass} ${tileHeight} ${tileMargin} ${fontSize} text-gameDark pointer-events-none font-bold uppercase border-2 transition-all outline-none rounded aspect-square
               ${isCurrentRow || isCorrectRow ? "opacity-100" : "opacity-60"}
               ${shouldFlip ? "animate-flip" : ""}
-              ${isNextTile ? "border-gameGreen!" : "border-transparent!"}
+              ${isNextTile ? "border-gameGreen!" : "border-transparent"}
               ${shake && isCurrentRow ? "animate-shake border-red-500!" : ""}
               ${colorClass}
             `,
