@@ -614,7 +614,7 @@ export default function Survival({ mode = "survival" }) {
         progress.streak > 3
           ? `${progress.streak} \uD83D\uDD25`
           : `${progress.streak}`;
-      const shareText = `MVHMDLE ${mode.toUpperCase()} BOSS (${game.bossWordCount} words)\n\n${allGrids}\n\nStreak: ${streakText}\nTotal: $${progress.currency.toLocaleString()} \uD83D\uDCB0`;
+      const shareText = `[MVHMDLE](https://mvhmdwvliieeeiid.github.io/mvhmdle-remake-project/) ${mode.toUpperCase()} BOSS (${game.bossWordCount} words)\n\n${allGrids}\n\nStreak: ${streakText}\nTotal: $${progress.currency.toLocaleString()} \uD83D\uDCB0`;
       await navigator.clipboard.writeText(shareText);
     } else {
       // Normal game sharing
@@ -642,7 +642,7 @@ export default function Survival({ mode = "survival" }) {
         })
         .join("\n");
       const score = isModalOpen[1] === "won" ? game.guesses.length : "X";
-      const shareText = `MVHMDLE ${mode.toUpperCase()} ${score}/${game.maxTurns}\n\n${grid}\n\nStreak: ${progress.streak}\nTotal: $${progress.currency.toLocaleString()} 💰`;
+      const shareText = `[MVHMDLE](https://mvhmdwvliieeeiid.github.io/mvhmdle-remake-project/) ${mode.toUpperCase()} ${score}/${game.maxTurns}\n\n${grid}\n\nStreak: ${progress.streak}\nTotal: $${progress.currency.toLocaleString()} 💰`;
       await navigator.clipboard.writeText(shareText);
     }
     addToast("Copied!", "success");

@@ -113,7 +113,7 @@ export default function Daily({ mode = "daily" }) {
       .join("\n");
 
     const score = game.gameState === "won" ? game.guesses.length : "X";
-    const shareText = `MVHMDLE DAILY ${score}/6\n\n${grid}\n\nStreak: ${game.streak}${game.streak > 3 ? " 🔥" : ""}`;
+    const shareText = `[MVHMDLE](https://mvhmdwvliieeeiid.github.io/mvhmdle-remake-project/) DAILY ${score}/6\n\n${grid}\n\nStreak: ${game.streak}${game.streak > 3 ? " 🔥" : ""}`;
 
     try {
       await navigator.clipboard.writeText(shareText);

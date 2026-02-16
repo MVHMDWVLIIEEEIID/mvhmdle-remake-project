@@ -287,7 +287,7 @@ export default function SurvivalGameModals({
                   <div
                     className={`text-[22px] font-black text-white uppercase tracking-wider drop-shadow-[0_0_15px_rgba(74,222,128,0.25)] text-center mb-3`}
                   >
-                    {renderBossWordsInline(stats.targetWords)}
+                    ( {renderBossWordsInline(stats.targetWords)} )
                   </div>
 
                   {/* per-word definition buttons removed by request */}
