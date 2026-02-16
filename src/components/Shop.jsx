@@ -1,5 +1,21 @@
 import React from "react";
 
+const HIDE_A_LETTER_STEP = 120;
+const HEART_STEP = 18000;
+const STANDARD_HINT_SCALING = {
+  "Vowel Letter": { perBuyStep: 0.07, maxMultiplier: 2.3 },
+  "Yellow Letter": { perBuyStep: 0.09, maxMultiplier: 2.9 },
+  "Green Letter": { perBuyStep: 0.11, maxMultiplier: 2.9 },
+  Row: { perBuyStep: 0.11, maxMultiplier: 2.3 },
+};
+
+const getScaledHintPrice = (baseCost, totalBought, scaling) => {
+  if (!scaling) return baseCost;
+  const scaled = Math.floor(baseCost * (1 + totalBought * scaling.perBuyStep));
+  const capped = Math.floor(baseCost * scaling.maxMultiplier);
+  return Math.min(scaled, capped);
+};
+
 export default function Shop({
   currency,
   hearts = 0,
@@ -34,15 +50,18 @@ export default function Shop({
           // --- PRICING LOGIC ---
           if (name === "Hide a Letter") {
             // Consumable: scales with round usage
-            currentPrice = data.cost + usedCount * 150;
+            currentPrice = data.cost + usedCount * HIDE_A_LETTER_STEP;
           } else if (name === "Heart") {
             // Permanent: scales linearly with lifetime purchases
-            currentPrice = data.cost + totalBought * 25000;
+            currentPrice = data.cost + totalBought * HEART_STEP;
           } else if (name === "Beat The Game") {
             currentPrice = data.cost;
           } else {
-            // Standard Hints: Scale linearly 25%
-            currentPrice = Math.floor(data.cost * (1 + totalBought * 0.25));
+            currentPrice = getScaledHintPrice(
+              data.cost,
+              totalBought,
+              STANDARD_HINT_SCALING[name],
+            );
           }
 
           const canAfford = currency >= currentPrice;

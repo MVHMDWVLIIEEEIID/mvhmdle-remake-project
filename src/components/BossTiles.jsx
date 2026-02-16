@@ -1,6 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from "react";
 import data from "../data/words.json";
 
+const RESIZE_BEFORE_FLIP_MS = 300;
+const FLIP_TOTAL_MS = 1250;
+
 export default function BossTiles({
   guesses = [],
   turn = 0,
@@ -14,12 +17,34 @@ export default function BossTiles({
   const [currentGuess, setCurrentGuess] = useState("");
   const [solutions] = useState(targetWords.map((w) => w?.toLowerCase()));
   const [shake, setShake] = useState(false);
+  const [pendingFlipTurn, setPendingFlipTurn] = useState(-1);
   const [lastSubmittedTurn, setLastSubmittedTurn] = useState(-1);
   const isSubmittingRef = useRef(false);
 
   useEffect(() => {
     isSubmittingRef.current = false;
   }, [turn, gameState, guesses.length]);
+
+  useEffect(() => {
+    if (pendingFlipTurn < 0) return undefined;
+
+    const timeoutId = setTimeout(() => {
+      setLastSubmittedTurn(pendingFlipTurn);
+      setPendingFlipTurn(-1);
+    }, RESIZE_BEFORE_FLIP_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [pendingFlipTurn]);
+
+  useEffect(() => {
+    if (lastSubmittedTurn < 0) return undefined;
+
+    const timeoutId = setTimeout(() => {
+      setLastSubmittedTurn(-1);
+    }, FLIP_TOTAL_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [lastSubmittedTurn]);
 
   // For 2-word mode: track which word is active
   // For 4-word mode: apply guess to all words at once
@@ -112,7 +137,7 @@ export default function BossTiles({
           // Submit to all 4 words at once with single call
           if (onGuessSubmit(guessToSubmit)) {
             isSubmittingRef.current = true;
-            setLastSubmittedTurn(turn);
+            setPendingFlipTurn(turn);
             setCurrentGuess("");
           }
         } else {
@@ -129,7 +154,7 @@ export default function BossTiles({
           // Submit once and it applies to both words
           if (onGuessSubmit(guessToSubmit, 0)) {
             isSubmittingRef.current = true;
-            setLastSubmittedTurn(turn);
+            setPendingFlipTurn(turn);
             setCurrentGuess("");
           }
         }
@@ -198,13 +223,18 @@ export default function BossTiles({
       const rowGuess = guessByRow[i];
       const isCorrectRow = guessByRow[i]?.word === solution;
       const rowHasGuess = Boolean(rowGuess);
+      const isPendingRevealRow = i === pendingFlipTurn && rowHasGuess;
       const shouldFlip = i === lastSubmittedTurn && rowHasGuess;
+      const shouldShowStatuses = isPrevRow && rowHasGuess && !isPendingRevealRow;
 
       let rowLetters = Array(5).fill("");
       let rowStatuses = Array(5).fill("");
 
       if (isPrevRow && rowHasGuess) {
         rowLetters = rowGuess.word.split("");
+      }
+
+      if (shouldShowStatuses) {
         rowStatuses = getGuessStatuses(rowGuess.word, wordIdx);
       } else if (isCurrentRow) {
         // Show current guess in all words
@@ -216,7 +246,7 @@ export default function BossTiles({
         const isNextTile = isCurrentRow && j === currentGuess.length;
 
         let colorClass = "bg-gameLight border-gameLight";
-        if (isPrevRow) {
+        if (shouldShowStatuses) {
           if (rowStatuses[j] === "bg-gameGreen")
             colorClass = "bg-gameGreen border-gameGreen text-gameDark";
           else if (rowStatuses[j] === "bg-gameYellow")
@@ -246,7 +276,7 @@ export default function BossTiles({
           wordIdx,
           key: `${wordIdx}-${i}-${j}`,
           className: `
-              text-center ${tileWidthClass} ${tileHeight} ${tileMargin} ${fontSize} text-gameDark pointer-events-none font-bold uppercase border-2 transition-all outline-none rounded aspect-square
+              text-center ${tileWidthClass} ${tileHeight} ${tileMargin} ${fontSize} text-gameDark pointer-events-none font-bold uppercase border-2 transition-[height,font-size,background-color,border-color,color,opacity] duration-300 ease-out outline-none rounded aspect-square
               ${isCurrentRow || isCorrectRow ? "opacity-100" : "opacity-60"}
               ${shouldFlip ? "animate-flip" : ""}
               ${isNextTile ? "border-gameGreen!" : "border-transparent"}

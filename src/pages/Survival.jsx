@@ -247,6 +247,7 @@ export default function Survival({ mode = "survival" }) {
     }
     return [false, "playing"];
   });
+  const [streakBeforeLastLoss, setStreakBeforeLastLoss] = useState(0);
 
   // --- Actions ---
 
@@ -406,6 +407,7 @@ export default function Survival({ mode = "survival" }) {
           },
         ]);
       } else if (result === "lost") {
+        setStreakBeforeLastLoss(progress.streak);
         progress.addLoss();
         const newHearts = Math.max(0, progress.hearts - 1);
         progress.setHearts(newHearts);
@@ -830,6 +832,7 @@ export default function Survival({ mode = "survival" }) {
         onFullReset={handleFullReset}
         stats={{
           streak: progress.streak,
+          streakBeforeLastLoss,
           currency: progress.currency,
           gamesPlayed: progress.gamesPlayed,
           hearts: progress.hearts,

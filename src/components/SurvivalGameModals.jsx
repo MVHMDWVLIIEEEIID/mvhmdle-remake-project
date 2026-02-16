@@ -156,6 +156,34 @@ export default function SurvivalGameModals({
   const [showModal, modalType] = isOpen;
   const defsRef = useRef([]);
   const [expandedDefs, setExpandedDefs] = useState([]);
+  const BrokenHeartIcon = ({ className = "w-8 h-8" }) => (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={className}
+    >
+      <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+      <path
+        d="M13.7 6.4l-2.7 3.6 2.1.8-1.6 2.7 2.3.9-2.1 4.2"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2.4"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-gameDark"
+      />
+      <path
+        d="M10.8 10.1l-1.7 1.5m3.6 2.3l-1.8 1.7"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="text-gameDark"
+      />
+    </svg>
+  );
   const renderBossWordsInline = (words = []) =>
     words.map((w, i) => (
       <span key={i} className="inline-block">
@@ -164,6 +192,8 @@ export default function SurvivalGameModals({
         {i === words.length - 1 ? `.` : ""}
       </span>
     ));
+  const statCardBaseClass =
+    "bg-white/[0.03] border border-white/10 rounded-3xl p-4 flex flex-col items-center justify-center min-h-[120px]";
 
   useEffect(() => {
     const handler = (e) => {
@@ -369,17 +399,8 @@ export default function SurvivalGameModals({
         content: (
           <div className="flex flex-col items-center gap-4 w-full">
             <p className="text-gameLight/50 uppercase">
-              {stats.isBossGame ? `Boss Attempt Failed:` : `The Word Was:`}
+              {stats.isBossGame ? `Boss Attempt Failed:` : `Attempt Failed:`}
             </p>
-            {stats.isBossGame ? (
-              <div className="text-3xl font-black text-gameLight uppercase text-center">
-                {renderBossWordsInline(stats.targetWords)}
-              </div>
-            ) : (
-              <p className="text-4xl font-black text-gameLight uppercase">
-                "{stats.targetWord}"
-              </p>
-            )}
             <div className="flex gap-2">
               {[...Array(stats.hearts)].map((_, i) => (
                 <span key={i} className="text-3xl">
@@ -394,22 +415,61 @@ export default function SurvivalGameModals({
                   </svg>
                 </span>
               ))}
-              {[...Array(Math.max(0, MAX_HEARTS - (stats?.hearts || 0)))].map(
-                (_, i) => (
-                  <span key={i} className="text-3xl grayscale opacity-30">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      className="h-8 w-8 text-gameLight/50"
-                    >
-                      <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
-                    </svg>
-                  </span>
-                ),
+              {stats.hearts < MAX_HEARTS && (
+                <span className="text-3xl">
+                  <BrokenHeartIcon className="w-8 h-8 text-gameRed animate-pulse" />
+                </span>
               )}
+              {[
+                ...Array(Math.max(0, MAX_HEARTS - (stats?.hearts || 0) - 1)),
+              ].map((_, i) => (
+                <span key={i} className="text-3xl grayscale opacity-30">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    className="h-8 w-8 text-gameLight/50"
+                  >
+                    <path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+                  </svg>
+                </span>
+              ))}
             </div>
-            {!stats.isBossGame && <DefinitionSection word={stats.targetWord} />}
+            {stats.isBossGame ? (
+              <div className="text-2xl font-black text-gameLight uppercase text-center">
+                ( {renderBossWordsInline(stats.targetWords)} )
+              </div>
+            ) : (
+              <p className="text-4xl font-black text-gameLight uppercase">
+                "{stats.targetWord}"
+              </p>
+            )}
+            <div
+              className={`${statCardBaseClass} w-full border-gameYellow/35 bg-gameYellow/6`}
+            >
+              <span className="text-5xl font-black text-gameYellow leading-none">
+                {stats.streakBeforeLastLoss ?? stats.streak}
+              </span>
+              <span className="text-[10px] font-bold uppercase text-gameYellow/60 tracking-widest mt-2">
+                Streak Was
+              </span>
+            </div>
+            {stats.isBossGame ? (
+              <div className="w-full mt-2">
+                <div className="max-h-28 overflow-y-auto space-y-4 hide-scrollbar">
+                  {stats.targetWords.map((word, idx) => (
+                    <div key={idx} ref={(el) => (defsRef.current[idx] = el)}>
+                      <DefinitionSection
+                        word={word}
+                        open={expandedDefs.includes(idx)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <DefinitionSection word={stats.targetWord} />
+            )}
           </div>
         ),
         footer: (
@@ -439,11 +499,13 @@ export default function SurvivalGameModals({
           <div className="flex flex-col items-center gap-6 w-full">
             <div className="flex flex-col items-center gap-2">
               <p className="text-xs text-white/40 uppercase tracking-widest">
-                {stats.isBossGame ? `Boss:` : `The word was`}
+                {stats.isBossGame
+                  ? `${stats.bossWordCount === 4 ? "4-Words Boss" : "2-Words Boss"} Was :`
+                  : `The word was`}
               </p>
               {stats.isBossGame ? (
-                <div className="text-3xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)] text-center">
-                  {renderBossWordsInline(stats.targetWords)}
+                <div className="text-2xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)] text-center">
+                  ( {renderBossWordsInline(stats.targetWords)} )
                 </div>
               ) : (
                 <p className="text-4xl font-black text-gameLight uppercase drop-shadow-[0_0_25px_rgba(239,68,68,0.4)]">
@@ -452,24 +514,39 @@ export default function SurvivalGameModals({
               )}
             </div>
             <div className="grid grid-cols-2 gap-3 w-full mt-2">
-              <div className="bg-gameRed/10 border border-gameRed/20 rounded-2xl p-4 flex flex-col items-center justify-center">
-                <span className="text-2xl font-black text-gameRed">
+              <div className={statCardBaseClass}>
+                <span className="text-4xl font-black text-gameRed leading-none">
                   {stats.gamesPlayed}
                 </span>
-                <span className="text-[9px] font-bold uppercase text-gameRed/50 tracking-widest mt-1">
+                <span className="text-[10px] font-bold uppercase text-white/35 tracking-widest mt-2">
                   Games
                 </span>
               </div>
-              <div className="bg-gameYellow/10 border border-gameYellow/20 rounded-2xl p-4 flex flex-col items-center justify-center">
-                <span className="text-2xl font-black text-gameYellow">
+              <div className={statCardBaseClass}>
+                <span className="text-4xl font-black text-gameYellow leading-none">
                   ${stats.currency.toLocaleString()}
                 </span>
-                <span className="text-[9px] font-bold uppercase text-gameYellow/50 tracking-widest mt-1">
+                <span className="text-[10px] font-bold uppercase text-white/35 tracking-widest mt-2">
                   Cash
                 </span>
               </div>
             </div>
-            {!stats.isBossGame && <DefinitionSection word={stats.targetWord} />}
+            {stats.isBossGame ? (
+              <div className="w-full mt-2">
+                <div className="max-h-28 overflow-y-auto space-y-4 hide-scrollbar">
+                  {stats.targetWords.map((word, idx) => (
+                    <div key={idx} ref={(el) => (defsRef.current[idx] = el)}>
+                      <DefinitionSection
+                        word={word}
+                        open={expandedDefs.includes(idx)}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <DefinitionSection word={stats.targetWord} />
+            )}
           </div>
         ),
         footer: (
