@@ -161,7 +161,6 @@ export default function DailyGameModals({ isOpen, onClose, onShare, stats }) {
               <div className="bg-white/5 border border-gameGreen/20 rounded-2xl flex-1 flex flex-col items-center justify-center p-4">
                 <span className="text-4xl font-black text-gameGreen">
                   {stats.streak}
-                  {stats.streak > 3 ? " 🔥" : ""}
                 </span>
                 <span className="text-[10px] font-bold uppercase text-white/30 tracking-widest mt-1">
                   Streak

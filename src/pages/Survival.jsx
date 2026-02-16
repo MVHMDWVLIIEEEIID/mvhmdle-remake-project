@@ -328,7 +328,8 @@ export default function Survival({ mode = "survival" }) {
 
     setTimeout(() => {
       if (result === "won") {
-        const solvedWords = game.isBossGame && game.bossWordCount > 1 ? game.bossWordCount : 1;
+        const solvedWords =
+          game.isBossGame && game.bossWordCount > 1 ? game.bossWordCount : 1;
         progress.addWin(solvedWords);
         const unusedRows = game.maxTurns - guessCount;
         // Boss game earnings (if applicable) or regular winnings
@@ -642,7 +643,7 @@ export default function Survival({ mode = "survival" }) {
         })
         .join("\n");
       const score = isModalOpen[1] === "won" ? game.guesses.length : "X";
-      const shareText = `[MVHMDLE](https://mvhmdwvliieeeiid.github.io/mvhmdle-remake-project/) ${mode.toUpperCase()} ${score}/${game.maxTurns}\n\n${grid}\n\nStreak: ${progress.streak}\nTotal: $${progress.currency.toLocaleString()} 💰`;
+      const shareText = `[MVHMDLE](https://mvhmdwvliieeeiid.github.io/mvhmdle-remake-project/) ${mode.toUpperCase()} ${score}/${game.maxTurns}\n\n${grid}\n\nStreak: ${progress.streak}${progress.streak > 3 ? " 🔥" : ""}\nTotal: $${progress.currency.toLocaleString()} 💰`;
       await navigator.clipboard.writeText(shareText);
     }
     addToast("Copied!", "success");
